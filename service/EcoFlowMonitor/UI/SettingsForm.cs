@@ -33,6 +33,7 @@ namespace EcoFlowMonitor.UI
 
         // ---- General tab controls ----
         private CheckBox _chkStartup;
+        private CheckBox _chkDarkMode;
         private TextBox _txtLogPath;
         private Button _btnBrowseLog;
 
@@ -48,6 +49,7 @@ namespace EcoFlowMonitor.UI
             _config = config;
             InitializeComponent();
             LoadConfig();
+            ThemeManager.Apply(this);
         }
 
         // ------------------------------------------------------------------
@@ -323,6 +325,16 @@ namespace EcoFlowMonitor.UI
 
             y += gap;
 
+            // --- Dark mode ---
+            _chkDarkMode = new CheckBox
+            {
+                Text = "Dark mode",
+                Location = new Point(16, y),
+                AutoSize = true
+            };
+            tab.Controls.Add(_chkDarkMode);
+            y += 28 + gap;
+
             // --- Error log path ---
             tab.Controls.Add(MakeLabel("Error log path:", 16, y, 100));
             y += 20;
@@ -364,6 +376,7 @@ namespace EcoFlowMonitor.UI
 
             // General tab
             _chkStartup.Checked = StartupManager.IsEnabled();
+            _chkDarkMode.Checked = _config.General?.DarkMode ?? true;
             _txtLogPath.Text = _config.General?.ErrorLogPath ?? "";
 
             // Clear detail panel
@@ -380,6 +393,9 @@ namespace EcoFlowMonitor.UI
                 _config.General = new GeneralSettings();
 
             _config.General.ErrorLogPath = _txtLogPath.Text.Trim();
+            _config.General.DarkMode = _chkDarkMode.Checked;
+            ThemeManager.SetMode(_chkDarkMode.Checked);
+            ThemeManager.Apply(this);
 
             // Startup manager (Task Scheduler when admin, registry fallback otherwise)
             if (_chkStartup.Enabled) // checkbox is only enabled when running as admin

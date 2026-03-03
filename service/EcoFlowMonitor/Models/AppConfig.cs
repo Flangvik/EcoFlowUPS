@@ -12,5 +12,6 @@ namespace EcoFlowMonitor.Models
     {
         public bool StartWithWindows { get; set; } = false;
         public string ErrorLogPath { get; set; } = "";
+        public bool DarkMode { get; set; } = true;
     }
 }

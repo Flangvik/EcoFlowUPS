@@ -38,6 +38,7 @@ namespace EcoFlowMonitor.UI
         {
             _rule = Clone(rule);
             InitializeComponent();
+            ThemeManager.Apply(this);
             LoadRule();
         }
 

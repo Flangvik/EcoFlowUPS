@@ -54,6 +54,7 @@ namespace EcoFlowMonitor.UI
             _syncContext = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
 
             _appConfig = ConfigManager.Load();
+            ThemeManager.SetMode(_appConfig.General?.DarkMode ?? true);
             InitializeTray();
             NotificationAction.SetSharedIcon(_trayIcon);
             StartMonitors();
@@ -84,6 +85,8 @@ namespace EcoFlowMonitor.UI
                 Text = "EcoFlow Monitor",
                 Visible = true
             };
+
+            ThemeManager.Apply(menu);
 
             _trayIcon.DoubleClick += OpenSettings;
         }
