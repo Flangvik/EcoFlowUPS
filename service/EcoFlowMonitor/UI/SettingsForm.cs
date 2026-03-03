@@ -3,6 +3,7 @@ using System.Drawing;
 using System.IO;
 using System.Windows.Forms;
 using EcoFlowMonitor.Config;
+using EcoFlowMonitor.Core;
 using EcoFlowMonitor.Models;
 
 namespace EcoFlowMonitor.UI
@@ -243,18 +244,86 @@ namespace EcoFlowMonitor.UI
         {
             int y = 16;
             const int gap = 14;
+            bool isAdmin = ElevationHelper.IsAdministrator();
 
-            // Start with Windows checkbox
+            // --- Admin status badge ---
+            var badgeText = isAdmin ? "Running as Administrator" : "Not running as Administrator";
+            var badgeColor = isAdmin ? Color.FromArgb(0, 128, 0) : Color.FromArgb(180, 60, 0);
+            var lblAdmin = new Label
+            {
+                Text = (isAdmin ? "\u2713 " : "\u26a0 ") + badgeText,
+                Location = new Point(16, y),
+                AutoSize = true,
+                ForeColor = badgeColor,
+                Font = new Font(Font, FontStyle.Bold)
+            };
+            tab.Controls.Add(lblAdmin);
+            y += 24;
+
+            if (!isAdmin)
+            {
+                var btnElevate = new Button
+                {
+                    Text = "Restart as Administrator",
+                    Location = new Point(16, y),
+                    Width = 190,
+                    Height = 26
+                };
+                btnElevate.Click += (s, e) => ElevationHelper.RestartElevated();
+                tab.Controls.Add(btnElevate);
+                y += 34;
+            }
+
+            y += gap;
+
+            // --- Start with Windows ---
             _chkStartup = new CheckBox
             {
                 Text = "Start with Windows",
                 Location = new Point(16, y),
-                AutoSize = true
+                AutoSize = true,
+                Enabled = isAdmin
             };
             tab.Controls.Add(_chkStartup);
-            y += 28 + gap;
+            y += 22;
 
-            // Error log path
+            if (!isAdmin)
+            {
+                // Note explaining why the checkbox is disabled
+                var lblNote = new Label
+                {
+                    Text = "Requires administrator privileges (uses Task Scheduler for elevated autostart)",
+                    Location = new Point(36, y),
+                    AutoSize = false,
+                    Width = tab.Width - 56,
+                    Height = 30,
+                    ForeColor = Color.Gray,
+                    Font = new Font(Font.FontFamily, Font.Size - 0.5f, FontStyle.Italic),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                };
+                tab.Controls.Add(lblNote);
+                y += 34;
+            }
+            else
+            {
+                var lblNote = new Label
+                {
+                    Text = "Creates a Task Scheduler entry that launches elevated at logon (no UAC prompt on boot)",
+                    Location = new Point(36, y),
+                    AutoSize = false,
+                    Width = tab.Width - 56,
+                    Height = 30,
+                    ForeColor = Color.Gray,
+                    Font = new Font(Font.FontFamily, Font.Size - 0.5f, FontStyle.Italic),
+                    Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+                };
+                tab.Controls.Add(lblNote);
+                y += 34;
+            }
+
+            y += gap;
+
+            // --- Error log path ---
             tab.Controls.Add(MakeLabel("Error log path:", 16, y, 100));
             y += 20;
 
@@ -312,11 +381,22 @@ namespace EcoFlowMonitor.UI
 
             _config.General.ErrorLogPath = _txtLogPath.Text.Trim();
 
-            // Startup manager
-            bool startupWanted = _chkStartup.Checked;
-            bool startupEnabled = StartupManager.IsEnabled();
-            if (startupWanted && !startupEnabled) StartupManager.Enable();
-            if (!startupWanted && startupEnabled) StartupManager.Disable();
+            // Startup manager (Task Scheduler when admin, registry fallback otherwise)
+            if (_chkStartup.Enabled) // checkbox is only enabled when running as admin
+            {
+                bool startupWanted = _chkStartup.Checked;
+                bool startupEnabled = StartupManager.IsEnabled();
+                if (startupWanted && !startupEnabled)
+                {
+                    if (!StartupManager.Enable())
+                        MessageBox.Show("Could not create the startup task. Make sure the app is running as Administrator.",
+                            "Startup Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                else if (!startupWanted && startupEnabled)
+                {
+                    StartupManager.Disable();
+                }
+            }
 
             ConfigManager.Save(_config);
 
