@@ -4,3 +4,13 @@ __pycache__/
 *.pyc
 .pytest_cache/
 .worktrees/
+
+# Visual Studio / .NET build
+.vs/
+bin/
+obj/
+*.user
+
+# Diagnostic tools with hardcoded credentials
+poc/mqtt_diag.py
+service/EcoFlowDiag/

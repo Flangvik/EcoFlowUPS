@@ -128,6 +128,36 @@ namespace EcoFlowMonitor.Core
             return BitConverter.ToSingle(blob, 0);
         }
 
+        // Decode a packed repeated field of unsigned varints (wire type 2 blob)
+        private static int[] ReadPackedUnsigned(byte[] blob)
+        {
+            if (blob == null || blob.Length == 0) return new int[0];
+            var result = new List<int>();
+            int i = 0;
+            while (i < blob.Length)
+            {
+                ulong v = ReadVarint(blob, i, out i);
+                result.Add((int)v);
+            }
+            return result.ToArray();
+        }
+
+        // Decode a packed repeated field of zigzag-signed deci-Celsius values (wire type 2 blob)
+        // Returns float[] in degrees Celsius (divided by 10 after zigzag decode)
+        private static float[] ReadPackedSignedDC(byte[] blob)
+        {
+            if (blob == null || blob.Length == 0) return new float[0];
+            var result = new List<float>();
+            int i = 0;
+            while (i < blob.Length)
+            {
+                ulong v = ReadVarint(blob, i, out i);
+                long signed = (long)(v >> 1) ^ -(long)(v & 1);  // zigzag decode
+                result.Add((float)(signed / 10.0));
+            }
+            return result.ToArray();
+        }
+
         // ---------------------------------------------------------------
         // ParseOuter: top-level envelope -> HeaderMessage -> payload
         // ---------------------------------------------------------------
@@ -190,9 +220,13 @@ namespace EcoFlowMonitor.Core
             if (HasField(f, 9))
                 bms.TempC = (float)((double)ToSigned64(GetUlong(f, 9)) / 10.0);
 
-            // RemainMin: field 28
-            if (HasField(f, 28))
-                bms.RemainMin = (int)GetUlong(f, 28);
+            // DesignCapMah: field 11
+            if (HasField(f, 11))
+                bms.DesignCapMah = (int)GetUlong(f, 11);
+
+            // RemainCapMah: field 12
+            if (HasField(f, 12))
+                bms.RemainCapMah = (int)GetUlong(f, 12);
 
             // Cycles: field 14
             if (HasField(f, 14))
@@ -202,6 +236,18 @@ namespace EcoFlowMonitor.Core
             if (HasField(f, 15))
                 bms.SohPct = (int)GetUlong(f, 15);
 
+            // MaxCellMv: field 16
+            if (HasField(f, 16))
+                bms.MaxCellMv = (int)GetUlong(f, 16);
+
+            // MinCellMv: field 17
+            if (HasField(f, 17))
+                bms.MinCellMv = (int)GetUlong(f, 17);
+
+            // RemainMin: field 28
+            if (HasField(f, 28))
+                bms.RemainMin = (int)GetUlong(f, 28);
+
             // InputW: field 26
             if (HasField(f, 26))
                 bms.InputW = (int)GetUlong(f, 26);
@@ -209,6 +255,34 @@ namespace EcoFlowMonitor.Core
             // OutputW: field 27
             if (HasField(f, 27))
                 bms.OutputW = (int)GetUlong(f, 27);
+
+            // CellVolsMv: field 33 — packed unsigned varints (mV each)
+            byte[] cellVolBlob = GetBytes(f, 33);
+            if (cellVolBlob != null)
+                bms.CellVolsMv = ReadPackedUnsigned(cellVolBlob);
+
+            // CellTempsC: field 35 — packed zigzag signed deci-Celsius
+            byte[] cellTempBlob = GetBytes(f, 35);
+            if (cellTempBlob != null)
+                bms.CellTempsC = ReadPackedSignedDC(cellTempBlob);
+
+            // MosTempsC: field 56 — packed zigzag signed deci-Celsius
+            byte[] mosTempBlob = GetBytes(f, 56);
+            if (mosTempBlob != null)
+                bms.MosTempsC = ReadPackedSignedDC(mosTempBlob);
+
+            // AccuChgEnergyWh: field 79
+            if (HasField(f, 79))
+                bms.AccuChgEnergyWh = (long)GetUlong(f, 79);
+
+            // AccuDsgEnergyWh: field 80
+            if (HasField(f, 80))
+                bms.AccuDsgEnergyWh = (long)GetUlong(f, 80);
+
+            // PackSn: field 81 — UTF-8 string
+            byte[] packSnBlob = GetBytes(f, 81);
+            if (packSnBlob != null)
+                bms.PackSn = System.Text.Encoding.UTF8.GetString(packSnBlob);
 
             return bms;
         }
@@ -221,53 +295,84 @@ namespace EcoFlowMonitor.Core
             var f = DecodeFields(pdata);
             var disp = new DisplayData();
 
-            // TotalInW: field 3 — may be wire type 5 (float32) or wire type 0 (uint)
-            byte[] inBlob = GetBytes(f, 3);
-            if (inBlob != null && inBlob.Length >= 4)
+            // Helper: read a float32 field that may be wire type 5 (32-bit fixed) or wire type 0 (uint)
+            int? ReadFloatField(int fieldNum)
             {
-                float? fval = ToFloat32(inBlob);
-                if (fval.HasValue) disp.TotalInW = (int)Math.Round(fval.Value);
-            }
-            else if (HasField(f, 3))
-            {
-                disp.TotalInW = (int)GetUlong(f, 3);
-            }
-
-            // TotalOutW: field 4
-            byte[] outBlob = GetBytes(f, 4);
-            if (outBlob != null && outBlob.Length >= 4)
-            {
-                float? fval = ToFloat32(outBlob);
-                if (fval.HasValue) disp.TotalOutW = (int)Math.Round(fval.Value);
-            }
-            else if (HasField(f, 4))
-            {
-                disp.TotalOutW = (int)GetUlong(f, 4);
+                byte[] blob = GetBytes(f, fieldNum);
+                if (blob != null && blob.Length >= 4)
+                {
+                    float? fv = ToFloat32(blob);
+                    return fv.HasValue ? (int?)Math.Round(fv.Value) : null;
+                }
+                if (HasField(f, fieldNum)) return (int)GetUlong(f, fieldNum);
+                return null;
             }
 
-            // AcInW: field 54
-            byte[] acBlob = GetBytes(f, 54);
-            if (acBlob != null && acBlob.Length >= 4)
-            {
-                float? fval = ToFloat32(acBlob);
-                if (fval.HasValue) disp.AcInW = (int)Math.Round(fval.Value);
-            }
-            else if (HasField(f, 54))
-            {
-                disp.AcInW = (int)GetUlong(f, 54);
-            }
+            disp.TotalInW       = ReadFloatField(3);
+            disp.TotalOutW      = ReadFloatField(4);
+            disp.SolarInHighW   = ReadFloatField(35);
+            disp.SolarInLowW    = ReadFloatField(36);
+            disp.AcInW          = ReadFloatField(54);
+
+            // USB port watts: unsigned varints
+            if (HasField(f, 9))  disp.UsbA1W = (int)GetUlong(f, 9);
+            if (HasField(f, 10)) disp.UsbA2W = (int)GetUlong(f, 10);
+            if (HasField(f, 11)) disp.UsbC1W = (int)GetUlong(f, 11);
+            if (HasField(f, 12)) disp.UsbC2W = (int)GetUlong(f, 12);
+
+            // AC status
+            if (HasField(f, 61)) disp.AcPluggedIn = GetUlong(f, 61) != 0;
+            if (HasField(f, 62)) disp.AcInFreqHz  = (int)GetUlong(f, 62);
 
             return disp;
         }
 
         // ---------------------------------------------------------------
-        // Dispatch: parse raw bytes and route to correct decoder
-        // Returns true if at least one of bms/display was populated
+        // DecodeEms: cmdFunc=32, cmdId=2
+        // CMS envelope wraps EMS v1.0 at field 1 and EMS v1.3 at field 2
         // ---------------------------------------------------------------
-        public static bool Dispatch(byte[] raw, out BmsData bms, out DisplayData display)
+        public static EmsData DecodeEms(byte[] pdata)
+        {
+            var ems = new EmsData();
+            var f = DecodeFields(pdata);
+
+            // EMS v1.0 sub-message
+            byte[] v10 = GetBytes(f, 1);
+            if (v10 != null)
+            {
+                var e1 = DecodeFields(v10);
+                if (HasField(e1, 1))  ems.ChgState     = (int)GetUlong(e1, 1);
+                if (HasField(e1, 6))  ems.FanLevel      = (int)GetUlong(e1, 6);
+                if (HasField(e1, 7))  ems.MaxChargeSoc  = (int)GetUlong(e1, 7);
+                if (HasField(e1, 10)) ems.UpsMode       = (int)GetUlong(e1, 10);
+                if (HasField(e1, 12)) ems.ChgRemainMin  = (int)GetUlong(e1, 12);
+                if (HasField(e1, 13)) ems.DsgRemainMin  = (int)GetUlong(e1, 13);
+
+                byte[] bmsConnBlob = GetBytes(e1, 16);
+                if (bmsConnBlob != null)
+                    ems.BmsConnected = ReadPackedUnsigned(bmsConnBlob);
+            }
+
+            // EMS v1.3 sub-message
+            byte[] v13 = GetBytes(f, 2);
+            if (v13 != null)
+            {
+                var e2 = DecodeFields(v13);
+                if (HasField(e2, 3)) ems.ChgLinePlugged = (int)GetUlong(e2, 3);
+            }
+
+            return ems;
+        }
+
+        // ---------------------------------------------------------------
+        // Dispatch: parse raw bytes and route to correct decoder
+        // Returns true if at least one of bms/display/ems was populated
+        // ---------------------------------------------------------------
+        public static bool Dispatch(byte[] raw, out BmsData bms, out DisplayData display, out EmsData ems)
         {
             bms     = null;
             display = null;
+            ems     = null;
 
             try
             {
@@ -277,6 +382,13 @@ namespace EcoFlowMonitor.Core
                 if (cmdFunc == 32 && cmdId == 50)
                 {
                     bms = DecodeBms(pdata);
+                    return true;
+                }
+
+                // CMS/EMS: cmdFunc=32, cmdId=2
+                if (cmdFunc == 32 && cmdId == 2)
+                {
+                    ems = DecodeEms(pdata);
                     return true;
                 }
 

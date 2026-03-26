@@ -18,6 +18,9 @@ namespace EcoFlowMonitor.UI
         [DllImport("dwmapi.dll", PreserveSig = true)]
         private static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int attrValue, int attrSize);
 
+        [DllImport("uxtheme.dll", ExactSpelling = true, CharSet = CharSet.Unicode)]
+        private static extern int SetWindowTheme(IntPtr hwnd, string pszSubAppName, string pszSubIdList);
+
         private const int DWMWA_USE_IMMERSIVE_DARK_MODE = 20;
 
         // ------------------------------------------------------------------
@@ -62,6 +65,22 @@ namespace EcoFlowMonitor.UI
                 menu.Renderer = new DarkMenuRenderer();
             else
                 menu.RenderMode = ToolStripRenderMode.ManagerRenderMode;
+        }
+
+        // ------------------------------------------------------------------
+        // ListView — dark column header via SetWindowTheme
+        // ------------------------------------------------------------------
+        public static void ApplyListView(ListView lv)
+        {
+            lv.BackColor = ControlBg;
+            lv.ForeColor = Foreground;
+            void applyTheme()
+            {
+                try { SetWindowTheme(lv.Handle, IsDark ? "DarkMode_Explorer" : "Explorer", null); }
+                catch { }
+            }
+            if (lv.IsHandleCreated) applyTheme();
+            else lv.HandleCreated += (s, e) => applyTheme();
         }
 
         // ------------------------------------------------------------------

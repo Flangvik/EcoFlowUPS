@@ -8,6 +8,7 @@ namespace EcoFlowMonitor.Core
     {
         public BmsData Bms { get; set; }
         public DisplayData Display { get; set; }
+        public EmsData Ems { get; set; }
         public PowerState Power { get; set; } = new PowerState();
 
         // Keyed by RuleConfig.Id, stores the last time the rule fired
