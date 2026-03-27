@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.State;
@@ -14,11 +15,11 @@ public partial class DeviceViewModel : ViewModelBase
 
     // Connection info
     [ObservableProperty] private string _connectionBadge = "CLOUD";
-    [ObservableProperty] private string _activeSource = "";  // "via BLE" or "via Cloud"
-    [ObservableProperty] private string _statusText = "";     // "Scanning for BLE..." etc.
+    [ObservableProperty] private string _activeSource = "";
+    [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private ConnectionMode _connectionMode;
 
-    // Live state
+    // ── Core stats ──
     [ObservableProperty] private bool _isConnected;
     [ObservableProperty] private PowerStatus _powerStatus = PowerStatus.Unknown;
     [ObservableProperty] private float _batteryPct;
@@ -26,18 +27,37 @@ public partial class DeviceViewModel : ViewModelBase
     [ObservableProperty] private int _totalOutW;
     [ObservableProperty] private int _solarW;
     [ObservableProperty] private string _remainingTime = "--";
+    [ObservableProperty] private string _lastUpdated = "--:--:--";
+
+    // ── Battery / BMS ──
     [ObservableProperty] private float _voltageV;
+    [ObservableProperty] private float _currentA;
     [ObservableProperty] private float _tempC;
     [ObservableProperty] private int _cycles;
     [ObservableProperty] private int _sohPct;
+    [ObservableProperty] private int _cellSpreadMv;
+    [ObservableProperty] private int _designCapMah;
+    [ObservableProperty] private int _remainCapMah;
+    [ObservableProperty] private long _accuChgWh;
+    [ObservableProperty] private long _accuDsgWh;
+    [ObservableProperty] private string _packSn = "";
+
+    // ── Cell voltages (up to 16 cells) ──
+    public ObservableCollection<CellVoltageItem> CellVoltages { get; } = new();
+
+    // ── Power / Display ──
     [ObservableProperty] private int _acFreqHz;
     [ObservableProperty] private int _usbOutW;
+    [ObservableProperty] private bool _acPluggedIn;
+    [ObservableProperty] private int _acInW;
+
+    // ── EMS / System ──
     [ObservableProperty] private int _upsMode;
     [ObservableProperty] private int _fanLevel;
-    [ObservableProperty] private int _cellSpreadMv;
     [ObservableProperty] private int _battsConnected;
     [ObservableProperty] private int _battsTotal;
-    [ObservableProperty] private string _lastUpdated = "--:--:--";
+    [ObservableProperty] private int _maxChgSoc;
+    [ObservableProperty] private string _chargeTime = "--";
 
     // Power history for chart
     public List<PowerHistoryPoint> PowerHistory { get; } = new();
@@ -59,13 +79,8 @@ public partial class DeviceViewModel : ViewModelBase
         };
     }
 
-    /// <summary>Set the active data source indicator (called by orchestrator).</summary>
-    public void SetActiveSource(string source)
-    {
-        ActiveSource = source;
-    }
+    public void SetActiveSource(string source) => ActiveSource = source;
 
-    /// <summary>Cycle connection mode: Cloud → Auto → BLE → Cloud.</summary>
     public void CycleConnectionMode()
     {
         _device.ConnectionMode = _device.ConnectionMode switch
@@ -87,47 +102,96 @@ public partial class DeviceViewModel : ViewModelBase
 
         if (state.Bms != null)
         {
-            BatteryPct = state.Bms.BatteryPct ?? 0;
-            VoltageV = state.Bms.VoltageV ?? 0;
-            TempC = state.Bms.TempC ?? 0;
-            Cycles = state.Bms.Cycles ?? 0;
-            SohPct = state.Bms.SohPct ?? 0;
-            CellSpreadMv = (state.Bms.MaxCellMv ?? 0) - (state.Bms.MinCellMv ?? 0);
+            var b = state.Bms;
+            BatteryPct = b.BatteryPct ?? BatteryPct;
+            VoltageV = b.VoltageV ?? VoltageV;
+            CurrentA = b.CurrentA ?? CurrentA;
+            TempC = b.TempC ?? TempC;
+            Cycles = b.Cycles ?? Cycles;
+            SohPct = b.SohPct ?? SohPct;
+            CellSpreadMv = (b.MaxCellMv ?? 0) - (b.MinCellMv ?? 0);
+            DesignCapMah = b.DesignCapMah ?? DesignCapMah;
+            RemainCapMah = b.RemainCapMah ?? RemainCapMah;
+            AccuChgWh = b.AccuChgEnergyWh ?? AccuChgWh;
+            AccuDsgWh = b.AccuDsgEnergyWh ?? AccuDsgWh;
+            if (!string.IsNullOrEmpty(b.PackSn)) PackSn = b.PackSn;
 
-            if (state.Bms.RemainMin.HasValue)
+            if (b.RemainMin.HasValue)
             {
-                int h = state.Bms.RemainMin.Value / 60;
-                int m = state.Bms.RemainMin.Value % 60;
+                int h = b.RemainMin.Value / 60;
+                int m = b.RemainMin.Value % 60;
                 RemainingTime = $"{h}h {m:D2}m";
+            }
+
+            // Update cell voltages
+            if (b.CellVolsMv != null && b.CellVolsMv.Length > 0)
+            {
+                while (CellVoltages.Count < b.CellVolsMv.Length)
+                    CellVoltages.Add(new CellVoltageItem());
+                while (CellVoltages.Count > b.CellVolsMv.Length)
+                    CellVoltages.RemoveAt(CellVoltages.Count - 1);
+
+                int min = b.CellVolsMv.Min();
+                int max = b.CellVolsMv.Max();
+                for (int i = 0; i < b.CellVolsMv.Length; i++)
+                {
+                    CellVoltages[i].Index = i + 1;
+                    CellVoltages[i].MilliVolts = b.CellVolsMv[i];
+                    CellVoltages[i].IsMin = b.CellVolsMv[i] == min;
+                    CellVoltages[i].IsMax = b.CellVolsMv[i] == max;
+                }
             }
         }
 
         if (state.Display != null)
         {
-            TotalInW = state.Display.TotalInW ?? 0;
-            TotalOutW = state.Display.TotalOutW ?? 0;
-            SolarW = (state.Display.SolarInHighW ?? 0) + (state.Display.SolarInLowW ?? 0);
-            AcFreqHz = state.Display.AcInFreqHz ?? 0;
-            UsbOutW = (state.Display.UsbA1W ?? 0) + (state.Display.UsbA2W ?? 0) +
-                      (state.Display.UsbC1W ?? 0) + (state.Display.UsbC2W ?? 0);
+            var d = state.Display;
+            TotalInW = d.TotalInW ?? TotalInW;
+            TotalOutW = d.TotalOutW ?? TotalOutW;
+            SolarW = (d.SolarInHighW ?? 0) + (d.SolarInLowW ?? 0);
+            AcFreqHz = d.AcInFreqHz ?? AcFreqHz;
+            AcInW = d.AcInW ?? AcInW;
+            AcPluggedIn = d.AcPluggedIn ?? AcPluggedIn;
+            UsbOutW = (d.UsbA1W ?? 0) + (d.UsbA2W ?? 0) +
+                      (d.UsbC1W ?? 0) + (d.UsbC2W ?? 0);
         }
 
         if (state.Ems != null)
         {
-            UpsMode = state.Ems.UpsMode ?? 0;
-            FanLevel = state.Ems.FanLevel ?? 0;
-            if (state.Ems.BmsConnected != null)
+            var e = state.Ems;
+            UpsMode = e.UpsMode ?? UpsMode;
+            FanLevel = e.FanLevel ?? FanLevel;
+            MaxChgSoc = e.MaxChargeSoc ?? MaxChgSoc;
+            if (e.BmsConnected != null)
             {
-                BattsConnected = state.Ems.BmsConnected.Count(v => v != 0);
-                BattsTotal = state.Ems.BmsConnected.Length;
+                BattsConnected = e.BmsConnected.Count(v => v != 0);
+                BattsTotal = e.BmsConnected.Length;
+            }
+            if (e.ChgRemainMin.HasValue && e.ChgRemainMin.Value > 0 && e.ChgRemainMin.Value < 100000)
+            {
+                int h = e.ChgRemainMin.Value / 60;
+                int m = e.ChgRemainMin.Value % 60;
+                ChargeTime = $"{h}h {m:D2}m";
             }
         }
 
-        // Add to power history (keep last 60 points)
         PowerHistory.Add(new PowerHistoryPoint(state.LastUpdated, TotalInW, TotalOutW));
         if (PowerHistory.Count > 60)
             PowerHistory.RemoveAt(0);
     }
+}
+
+public class CellVoltageItem : ObservableObject
+{
+    private int _index;
+    private int _milliVolts;
+    private bool _isMin;
+    private bool _isMax;
+
+    public int Index { get => _index; set => SetProperty(ref _index, value); }
+    public int MilliVolts { get => _milliVolts; set => SetProperty(ref _milliVolts, value); }
+    public bool IsMin { get => _isMin; set => SetProperty(ref _isMin, value); }
+    public bool IsMax { get => _isMax; set => SetProperty(ref _isMax, value); }
 }
 
 public record PowerHistoryPoint(DateTime Time, int InputW, int OutputW);

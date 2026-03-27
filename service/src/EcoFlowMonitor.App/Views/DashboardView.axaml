@@ -128,7 +128,7 @@
                                                 BatteryPct="{Binding BatteryPct}"
                                                 Status="{Binding PowerStatus}" />
 
-                    <!-- STATS ROW 1: Primary -->
+                    <!-- STATS: Power -->
                     <UniformGrid Columns="5" Margin="0,8,0,0">
                         <controls:StatCard Label="INPUT" Value="{Binding TotalInW}" Unit="W"
                                            ValueColor="{Binding TotalInW, Converter={x:Static converters:WattColorConverter.InstanceGreen}}" />
@@ -136,27 +136,76 @@
                                            ValueColor="{Binding SolarW, Converter={x:Static converters:WattColorConverter.InstanceGold}}" />
                         <controls:StatCard Label="OUTPUT" Value="{Binding TotalOutW}" Unit="W"
                                            ValueColor="{Binding TotalOutW, Converter={x:Static converters:WattColorConverter.InstanceOrange}}" />
-                        <controls:StatCard Label="REMAINING" StringValue="{Binding RemainingTime}" />
-                        <controls:StatCard Label="UPDATED" StringValue="{Binding LastUpdated}" />
+                        <controls:StatCard Label="DISCHARGE" StringValue="{Binding RemainingTime}" />
+                        <controls:StatCard Label="CHARGE" StringValue="{Binding ChargeTime}" />
                     </UniformGrid>
 
-                    <!-- STATS ROW 2: Health -->
+                    <!-- STATS: Battery -->
                     <UniformGrid Columns="5">
-                        <controls:StatCard Label="VOLTAGE" Value="{Binding VoltageV}" Unit="V" Format="F1" />
-                        <controls:StatCard Label="TEMP" Value="{Binding TempC}" Unit="&#xB0;C" Format="F0" />
+                        <controls:StatCard Label="VOLTAGE" Value="{Binding VoltageV}" Unit="V" Format="F2" />
+                        <controls:StatCard Label="CURRENT" Value="{Binding CurrentA}" Unit="A" Format="F2" />
+                        <controls:StatCard Label="TEMP" Value="{Binding TempC}" Unit="&#xB0;C" Format="F1" />
                         <controls:StatCard Label="CYCLES" Value="{Binding Cycles}" />
                         <controls:StatCard Label="HEALTH" Value="{Binding SohPct}" Unit="%" />
-                        <controls:StatCard Label="BATTS" StringValue="{Binding BattsConnected, StringFormat='{}{0}'}" />
                     </UniformGrid>
 
-                    <!-- STATS ROW 3: Detail -->
+                    <!-- STATS: System -->
                     <UniformGrid Columns="5">
                         <controls:StatCard Label="AC FREQ" Value="{Binding AcFreqHz}" Unit="Hz" />
                         <controls:StatCard Label="USB OUT" Value="{Binding UsbOutW}" Unit="W" />
-                        <controls:StatCard Label="UPS MODE" StringValue="{Binding UpsMode, Converter={x:Static converters:UpsModeConverter.Instance}}" />
+                        <controls:StatCard Label="MAX CHG" Value="{Binding MaxChgSoc}" Unit="%" />
                         <controls:StatCard Label="FAN" StringValue="{Binding FanLevel, Converter={x:Static converters:FanLevelConverter.Instance}}" />
-                        <controls:StatCard Label="CELL &#x394;mV" Value="{Binding CellSpreadMv}" Unit="mV" />
+                        <controls:StatCard Label="BATTS" StringValue="{Binding BattsConnected, StringFormat='{}{0}'}" />
                     </UniformGrid>
+
+                    <!-- STATS: Capacity & Energy -->
+                    <UniformGrid Columns="5">
+                        <controls:StatCard Label="DESIGN" Value="{Binding DesignCapMah}" Unit="mAh" />
+                        <controls:StatCard Label="REMAIN" Value="{Binding RemainCapMah}" Unit="mAh" />
+                        <controls:StatCard Label="CELL &#x394;mV" Value="{Binding CellSpreadMv}" Unit="mV" />
+                        <controls:StatCard Label="TOT CHG" Value="{Binding AccuChgWh}" Unit="Wh" />
+                        <controls:StatCard Label="TOT DSG" Value="{Binding AccuDsgWh}" Unit="Wh" />
+                    </UniformGrid>
+
+                    <!-- CELL VOLTAGES PANEL -->
+                    <Border Classes="Card" Padding="16" IsVisible="{Binding CellVoltages.Count}">
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <TextBlock Text="CELL VOLTAGES" Classes="CaptionUpper" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding PackSn}" Classes="BodySmall" VerticalAlignment="Center"
+                                           Foreground="{StaticResource TextMuted}" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding CellVoltages}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource BackgroundSecondary}"
+                                                CornerRadius="4" Padding="8,4" Margin="2">
+                                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                                <TextBlock Text="{Binding Index, StringFormat='#{0}'}"
+                                                           FontSize="10" Foreground="{StaticResource TextMuted}"
+                                                           VerticalAlignment="Center" Width="20" />
+                                                <TextBlock Text="{Binding MilliVolts, StringFormat='{}{0} mV'}"
+                                                           FontSize="12" FontFamily="JetBrains Mono, Consolas, monospace"
+                                                           VerticalAlignment="Center">
+                                                    <TextBlock.Foreground>
+                                                        <MultiBinding Converter="{x:Static converters:CellVoltageColorConverter.Instance}">
+                                                            <Binding Path="IsMin" />
+                                                            <Binding Path="IsMax" />
+                                                        </MultiBinding>
+                                                    </TextBlock.Foreground>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
 
                     <!-- POWER CHART -->
                     <Border Classes="Card" Padding="16" Height="180">
