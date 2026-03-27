@@ -95,11 +95,22 @@ public class MonitorOrchestrator : IDisposable
 
         var state = new DeviceState { DeviceName = device.DisplayName, SerialNumber = device.SerialNumber };
 
+        Logger.Log($"MonitorOrchestrator: AddBleDevice sn={serialNumber} addr={bleAddress} enc={encryptionType} adapter={_bleAdapter.GetType().Name}");
         var monitor = new BleMonitor(device, state, _config.LocalUserId, _bleAdapter);
         var entry = new MonitorEntry(device, state, monitor);
         _monitors.Add(entry);
         monitor.StateChanged += (s, e) => OnStateChanged(entry, e);
-        _ = Task.Run(() => monitor.StartAsync());
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await monitor.StartAsync();
+            }
+            catch (Exception ex)
+            {
+                Logger.Log($"MonitorOrchestrator: BLE monitor crashed — {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+            }
+        });
 
         DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(state));
     }

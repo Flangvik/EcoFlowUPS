@@ -14,14 +14,17 @@
                 BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="0,0,1,0">
             <DockPanel>
                 <!-- Bottom buttons -->
-                <WrapPanel DockPanel.Dock="Bottom" Margin="12,8,12,12" HorizontalAlignment="Stretch">
-                    <Button Classes="Ghost" Content="&#x21bb; Refresh" Command="{Binding RefreshCommand}"
-                            IsEnabled="{Binding !IsRefreshing}" Margin="0,0,4,4" />
-                    <Button Classes="Ghost" Content="&#x1F4F6; BLE Scan" Command="{Binding ScanBleCommand}"
-                            Margin="0,0,4,4" />
-                    <Button Classes="Ghost" Content="&#x2699; Settings" Command="{Binding OpenSettingsCommand}"
-                            Margin="0,0,0,4" />
-                </WrapPanel>
+                <StackPanel DockPanel.Dock="Bottom" Margin="12,8,12,12" Spacing="4">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <Button Classes="Ghost" Content="Refresh" Command="{Binding RefreshCommand}"
+                                IsEnabled="{Binding !IsRefreshing}" Padding="8,6" FontSize="12" />
+                        <Button Classes="Ghost" Content="Settings" Command="{Binding OpenSettingsCommand}"
+                                Padding="8,6" FontSize="12" />
+                    </StackPanel>
+                    <Button Classes="Accent" Content="BLE Scan" Command="{Binding ScanBleCommand}"
+                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                            Padding="8,8" FontSize="12" />
+                </StackPanel>
 
                 <!-- Device list -->
                 <StackPanel Margin="0,16,0,0">

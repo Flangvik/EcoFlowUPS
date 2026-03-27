@@ -1,5 +1,4 @@
-// This file only compiles under net10.0-macos (requires CoreBluetooth framework bindings).
-#if MACCATALYST || MACOS
+// This file only compiles under net10.0-macos (excluded via Compile Remove in csproj for other TFMs).
 using CoreBluetooth;
 using Foundation;
 using EcoFlowMonitor.Logging;
@@ -719,4 +718,3 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
         }
     }
 }
-#endif
