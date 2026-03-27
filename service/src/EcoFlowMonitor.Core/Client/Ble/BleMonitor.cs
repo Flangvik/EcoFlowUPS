@@ -205,7 +205,9 @@ public class BleMonitor : IDeviceMonitor
         // Re-set with proper key and IV
         modern.SetSessionKey(sessionKey, MD5.HashData(sharedSecret));
 
-        Logger.Log("BleMonitor: ECDH handshake complete, session key established");
+        // Step 10: Update transport with the final session encryption
+        _transport!.SetCrypto(modern);
+        Logger.Log("BleMonitor: ECDH handshake complete, session key established, transport crypto updated");
     }
 
     private static int GetEcdhTypeSize(byte ecdhType)
@@ -235,17 +237,18 @@ public class BleMonitor : IDeviceMonitor
         var authStatusPacket = BlePacketBuilder.BuildPacket(
             src: 0x21, dst: 0x35, cmdSet: 0x35, cmdId: 0x89,
             payload: Array.Empty<byte>(), version: (byte)_config.BleProtocolVersion);
+        // Frame type 0x10 = FRAME_TYPE_PROTOCOL_INT (matching ha-ef-ble reference)
         var authStatusFrame = _crypto != null
-            ? BlePacketBuilder.WrapInFrame(authStatusPacket, 0x01, _crypto.Encrypt)
+            ? BlePacketBuilder.WrapInFrame(authStatusPacket, 0x10, _crypto.Encrypt)
             : BlePacketBuilder.WrapInFrame(authStatusPacket, 0x00);
         await _transport!.SendAsync(authStatusFrame, ct);
-        await Task.Delay(500, ct); // brief wait for auth status response
+        await Task.Delay(1000, ct); // wait for auth status response
 
         // Send authentication
         _authTcs = new TaskCompletionSource<bool>();
         var authPacket = BlePacketBuilder.BuildAuthPacket(_userId, sn, _config.BleProtocolVersion);
         var authFrame = _crypto != null
-            ? BlePacketBuilder.WrapInFrame(authPacket, 0x01, _crypto.Encrypt)
+            ? BlePacketBuilder.WrapInFrame(authPacket, 0x10, _crypto.Encrypt)
             : BlePacketBuilder.WrapInFrame(authPacket, 0x00);
         await _transport.SendAsync(authFrame, ct);
 

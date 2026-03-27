@@ -15,7 +15,7 @@ public class BleTransport : IDisposable
     private static readonly Guid NordicWriteUuid = new("6e400002-b5a3-f393-e0a9-e50e24dcca9e");
 
     private readonly BleDeviceInfo _deviceInfo;
-    private readonly IBleCryptoSession? _crypto;
+    private IBleCryptoSession? _crypto;
     private readonly IBleAdapter _adapter;
 
     private IBleGattConnection? _connection;
@@ -28,6 +28,13 @@ public class BleTransport : IDisposable
     public event EventHandler<byte[]>? RawFrameReceived;
     public event EventHandler<BlePacket>? PacketReceived;
     public bool IsConnected => _connection?.IsConnected ?? false;
+
+    /// <summary>Update the crypto session after ECDH handshake completes.</summary>
+    public void SetCrypto(IBleCryptoSession crypto)
+    {
+        _crypto = crypto;
+        Logger.Log($"BleTransport: crypto updated to {crypto.GetType().Name}");
+    }
 
     public BleTransport(BleDeviceInfo deviceInfo, IBleAdapter adapter, IBleCryptoSession? crypto = null)
     {

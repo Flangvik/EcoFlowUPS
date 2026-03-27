@@ -168,7 +168,8 @@ public class BleCryptoModern : IBleCryptoSession
 
 /// <summary>
 /// The embedded key data table used for Type 7 session key derivation.
-/// This is a fixed lookup table extracted from the EcoFlow BLE protocol.
+/// This is a fixed 65,280-byte lookup table extracted from the EcoFlow BLE protocol.
+/// Loaded from embedded resource keydata.b64.
 /// </summary>
 internal static class BleKeyData
 {
@@ -176,27 +177,15 @@ internal static class BleKeyData
 
     static BleKeyData()
     {
-        _data = Convert.FromBase64String(
-            "0YJKCksI0pageNcGpGEn8S0fXpRXO3sHSJsLZI6p1Lg+uTfXMFXlvPDpkp419O5K/RFgTrYM8PZDEhnKy+vsbYqPb9FdNVNi" +
-            "hmQKawepROIEI8F+7uGkVvzY9VaYjzbwXk15OAob0dkDDsB6S5BlmVGIhhre9x8x+fBKUlY2WaZSUt1AdA2qd2Gi2h9Fu7urQa" +
-            "tNMjqDelInqnyoli0IREZ/sgfM4p+xLGFjXdJp4kNgw6axmKltqheKcBDm+qLo/4L4kpmy/3oEOteP9b27+WoP/c7jJ80wD/uN" +
-            "u9CqbJpeqyobJs99ae30OuNioQrnyJ1AiF7uY1SbK+lTJ4WkUjYDFvUimzGdY3hP9ipu4mdGldyvMPDO+tRDGhjPkJNho4ugMD" +
-            "OlU7YEnh0j2nq1imSJ2e+cvJyYRUoEmS5kp1IGH0ez6LxOY+RPfFJyobDzwkULqIWndI2Pa2nnEQnOaCGgYYA80Ut2vlDV7IQ8" +
-            "jxmbZy4cVCkBW0jh4Th7zDQJWn3XtZy7hcmfDw1wERJJofNQIWMxeYsn0tp9q65boGxlmNAiTaDV/0sE9MvCjhNVaLiySvitz" +
-            "U31/+DGwElUFkE81Sav6Ihp27EGnasoFCN0AnYEe7M6N44SO8y336N5pHm7ctDAMusoPw6wTly5qgBuxWvwOnwbJRRhKEHvoICk" +
-            "uYPXUIE4CoKHFSZBqAEyHXVt0uot+6Zgd4JYbUnzuJeCZmmvoKZL2QCMqBriZXU80ViH8MgyoUOCGhtTfaTK5ZoDXSNkxPujV5" +
-            "647GBUEUKzYcG+d0Wn/CveaDkCZdcq5JayGJOSjzgHFH6LBQLixTLzhMqeYdA3bgaCvuGhRG7RDQUjSDwjSe9ZjM+syD8Xiu8" +
-            "xjE4yPuX+uRfNeynG+9imJ7uDvB8v8oFhCQrWGts+fE4KSKS4ww3VWngnnLOOmx3UyjitcMMJUGiSlyctw5JsFhgBw8OE5Qpc" +
-            "9GzUsy6EjGAz18vkLRBpWzsJtvDAPdv7SHu9CeS0UWfcFGmSXHdWMv7RjqxI1EJ/WKhtBPMKxDCDZs0Gb9szSwUZgT+MNlZvW" +
-            "nRNKrIFjXoJewprOTtPX+9k1y35GYQQGdPWxXxkkYUSQiIj4W2edJNlspWniBnXfMi3BHhdyDQWVVjF3zk05WmQ9CZq1hyn8F" +
-            "SrBdlEU2dgvZ2bcacgG86z+jQcvmJkc2mBFP2ZkmoM5qODrcXk17tQWMygItSDdfbfgwy5db7TR4ypDu0Lgn7rGj0xRCKuFoor" +
-            "JJ9RDhb8D6uKviXoSJM2EqsvKiPy6W2DAugWjvmH873eqd4vUrxTNjj4EV0uQ1xuKcf0OqMkV3CsmHIV/v6Pws7CHey1db8uh" +
-            "zlFWjomCBH5IyRh/QgCc840SJE5KlBAQjXLmtpggIeQP0bq4XVq7ns1OoILNpV3KQiXt+U0rD3g3WYrfazMnh0Ud4MezltWJQ" +
-            "g8I2FykheZt/xMc2iqfmB3CPbwsFgZPQQOzd+CkzQA08PaakFyV0gsKI1e/AMLDPMKsriv1yrZog4cD/OgBDLTvSmM/SncH/eE" +
-            "LwjKQM5GMGOO0X5V/kX8vLFBNPKeaVwqrMhNz/HOecyIFDXRr1hb5k/jA2dwgkFZ8jpXZWGbgQqS/M9/ZwBu+va4B8tWE2wpQ" +
-            "gJea5qJiTrSThjpJFmdOUgXpWaoJG2oMXtWPQntXyKLJCJ35pKRasGrHlc+XnChAN2IIV6AjVgUMZHdiuxpWzRVUcvMSpjFgrH" +
-            "XGL23HoYY81f+H/1b8UyMQhYR2ovXpgXYuP0x/nhRs3XNhtAWuT/Swd/sLcQfOTCtuRWqL9s/YYMlb8K/vUEajInoAxEtH7P0" +
-            "2vU/65fBKNgiD36Id9WNrdtYzY990");
+        var asm = typeof(BleKeyData).Assembly;
+        var resourceName = asm.GetManifestResourceNames()
+            .FirstOrDefault(n => n.EndsWith("keydata.b64"))
+            ?? throw new InvalidOperationException("keydata.b64 embedded resource not found");
+
+        using var stream = asm.GetManifestResourceStream(resourceName)!;
+        using var reader = new StreamReader(stream);
+        var b64 = reader.ReadToEnd().Trim();
+        _data = Convert.FromBase64String(b64);
     }
 
     public static void CopyBytes(int pos, byte[] dest, int destOffset, int count)
