@@ -237,9 +237,9 @@ public class BleMonitor : IDeviceMonitor
         var authStatusPacket = BlePacketBuilder.BuildPacket(
             src: 0x21, dst: 0x35, cmdSet: 0x35, cmdId: 0x89,
             payload: Array.Empty<byte>(), version: (byte)_config.BleProtocolVersion);
-        // Frame type 0x10 = FRAME_TYPE_PROTOCOL_INT (matching ha-ef-ble reference)
+        // Frame type 0x01 for auth frames
         var authStatusFrame = _crypto != null
-            ? BlePacketBuilder.WrapInFrame(authStatusPacket, 0x10, _crypto.Encrypt)
+            ? BlePacketBuilder.WrapInFrame(authStatusPacket, 0x01, _crypto.Encrypt)
             : BlePacketBuilder.WrapInFrame(authStatusPacket, 0x00);
         await _transport!.SendAsync(authStatusFrame, ct);
         await Task.Delay(1000, ct); // wait for auth status response
@@ -248,7 +248,7 @@ public class BleMonitor : IDeviceMonitor
         _authTcs = new TaskCompletionSource<bool>();
         var authPacket = BlePacketBuilder.BuildAuthPacket(_userId, sn, _config.BleProtocolVersion);
         var authFrame = _crypto != null
-            ? BlePacketBuilder.WrapInFrame(authPacket, 0x10, _crypto.Encrypt)
+            ? BlePacketBuilder.WrapInFrame(authPacket, 0x01, _crypto.Encrypt)
             : BlePacketBuilder.WrapInFrame(authPacket, 0x00);
         await _transport.SendAsync(authFrame, ct);
 

@@ -5,22 +5,11 @@ namespace EcoFlowMonitor.Protocol;
 
 /// <summary>
 /// Routes BLE packets by (src, cmdSet, cmdId) to the appropriate protobuf decoder.
-/// The inner protobuf payloads use the same field layouts as MQTT messages,
-/// so we reuse ProtobufDecoder.DecodeBms/DecodeDisplay/DecodeEms.
+/// Delta 3 family sends all data via DisplayPropertyUpload (src=0x02, cmdSet=0xFE, cmdId=0x15).
+/// Other devices use different routing — extend here as devices are added.
 /// </summary>
 public static class BleDispatcher
 {
-    // BLE source addresses
-    private const byte SrcPd = 0x02;     // Power Delivery
-    private const byte SrcEms = 0x03;    // Energy Management System
-    private const byte SrcInverter = 0x04;
-    private const byte SrcMppt = 0x05;   // Solar charger
-    private const byte SrcBms = 0x0B;    // Battery Management System
-
-    // Common heartbeat cmdSet
-    private const byte CmdSetHeartbeat = 0x02;
-    private const byte CmdSetData = 0x20;
-
     public static bool Dispatch(BlePacket packet, out BmsData? bms, out DisplayData? display, out EmsData? ems)
     {
         bms = null;
@@ -31,34 +20,47 @@ public static class BleDispatcher
 
         try
         {
-            // BMS heartbeat -- battery data
-            if (packet.Src == SrcBms ||
-                (packet.Src == SrcEms && packet.CmdSet == CmdSetData && packet.CmdId == 0x32))
+            // Delta 3 family: src=0x02, cmdSet=0xFE, cmdId=0x15 → DisplayPropertyUpload
+            // This is the primary data message containing battery, power, and system state
+            if (packet.Src == 0x02 && packet.CmdSet == 0xFE && (packet.CmdId == 0x15 || packet.CmdId == 0x16))
+            {
+                return BleProtoMapper.MapDelta3Display(packet.Payload, out bms, out display, out ems);
+            }
+
+            // Auth responses (not data — handled separately by BleMonitor)
+            if (packet.CmdSet == 0x35)
+                return false;
+
+            // Time sync request from device (cmdSet=0x01, cmdId=0x52)
+            if (packet.CmdSet == 0x01 && packet.CmdId == 0x52)
+            {
+                Logger.Log("BleDispatcher: device requested time sync");
+                return false;
+            }
+
+            // Fallback: try legacy MQTT-style decoding for other device types
+            if (packet.Src == 0x0B || (packet.Src == 0x03 && packet.CmdSet == 0x20 && packet.CmdId == 0x32))
             {
                 bms = ProtobufDecoder.DecodeBms(packet.Payload);
                 return bms != null;
             }
-
-            // PD heartbeat -- power display data (input/output/USB/AC)
-            if (packet.Src == SrcPd && (packet.CmdSet == CmdSetHeartbeat || packet.CmdSet == CmdSetData))
+            if (packet.Src == 0x02 && packet.CmdSet == 0x20)
             {
                 display = ProtobufDecoder.DecodeDisplay(packet.Payload);
                 return display != null;
             }
-
-            // EMS heartbeat -- energy management (charge state, UPS mode, fan)
-            if (packet.Src == SrcEms && (packet.CmdSet == CmdSetHeartbeat || packet.CmdSet == CmdSetData) && packet.CmdId != 0x32)
+            if (packet.Src == 0x03 && packet.CmdSet == 0x20)
             {
                 ems = ProtobufDecoder.DecodeEms(packet.Payload);
                 return ems != null;
             }
 
-            Logger.Log($"BleDispatcher: unhandled packet src=0x{packet.Src:X2} cmdSet=0x{packet.CmdSet:X2} cmdId=0x{packet.CmdId:X2} len={packet.Payload.Length}");
+            Logger.Log($"BleDispatcher: unhandled src=0x{packet.Src:X2} cs=0x{packet.CmdSet:X2} ci=0x{packet.CmdId:X2} len={packet.Payload.Length}");
             return false;
         }
         catch (Exception ex)
         {
-            Logger.Log($"BleDispatcher: decode error -- {ex.Message}");
+            Logger.Log($"BleDispatcher: error — {ex.Message}");
             return false;
         }
     }

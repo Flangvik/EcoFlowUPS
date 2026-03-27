@@ -47,8 +47,9 @@ public class MonitorOrchestrator : IDisposable
             }
             else if (device.ConnectionType == ConnectionType.Ble)
             {
-                if (string.IsNullOrEmpty(_config.LocalUserId)) continue;
-                var monitor = new BleMonitor(device, state, _config.LocalUserId, _bleAdapter);
+                if (string.IsNullOrEmpty(_config.CloudUserId) && string.IsNullOrEmpty(_config.LocalUserId)) continue;
+                var userId = !string.IsNullOrEmpty(_config.CloudUserId) ? _config.CloudUserId : _config.LocalUserId;
+                var monitor = new BleMonitor(device, state, userId, _bleAdapter);
                 var entry = new MonitorEntry(device, state, monitor);
                 _monitors.Add(entry);
                 monitor.StateChanged += (s, e) => OnStateChanged(entry, e);
@@ -103,7 +104,8 @@ public class MonitorOrchestrator : IDisposable
         }
 
         Logger.Log($"MonitorOrchestrator: AddBleDevice sn={serialNumber} addr={bleAddress} enc={encryptionType} adapter={_bleAdapter.GetType().Name}");
-        var monitor = new BleMonitor(device, state, _config.LocalUserId, _bleAdapter);
+        var userId = !string.IsNullOrEmpty(_config.CloudUserId) ? _config.CloudUserId : _config.LocalUserId;
+        var monitor = new BleMonitor(device, state, userId, _bleAdapter);
         var entry = new MonitorEntry(device, state, monitor);
         _monitors.Add(entry);
         monitor.StateChanged += (s, e) => OnStateChanged(entry, e);

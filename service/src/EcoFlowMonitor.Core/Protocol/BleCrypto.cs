@@ -84,17 +84,7 @@ public class BleCryptoModern : IBleCryptoSession
     /// </summary>
     public void SetSessionKey(byte[] key, byte[] iv)
     {
-        // Key must be 16 bytes for AES-128 or padded to 32 for AES-256
-        if (key.Length == 16)
-        {
-            _key = new byte[32];
-            Array.Copy(key, 0, _key, 0, 16);
-            Array.Copy(key, 0, _key, 16, 16);
-        }
-        else
-        {
-            _key = key;
-        }
+        _key = key; // Use 16-byte key directly for AES-128
         _iv = iv;
         _initialized = true;
     }
@@ -104,10 +94,9 @@ public class BleCryptoModern : IBleCryptoSession
     /// </summary>
     public void SetInitialKey(byte[] sharedSecret)
     {
-        // Key: first 16 bytes of shared secret, doubled to 32
-        _key = new byte[32];
+        // Key: first 16 bytes of shared secret (AES-128)
+        _key = new byte[16];
         Array.Copy(sharedSecret, 0, _key, 0, Math.Min(16, sharedSecret.Length));
-        Array.Copy(sharedSecret, 0, _key, 16, Math.Min(16, sharedSecret.Length));
         // IV: MD5 of full shared secret
         _iv = MD5.HashData(sharedSecret);
         _initialized = true;
@@ -116,35 +105,25 @@ public class BleCryptoModern : IBleCryptoSession
     public byte[] Encrypt(byte[] plaintext)
     {
         if (!_initialized) throw new InvalidOperationException("ECDH handshake not complete");
-        // PKCS7 padding
-        int paddedLen = (plaintext.Length + 15) / 16 * 16;
-        if (paddedLen == plaintext.Length) paddedLen += 16; // PKCS7 always adds padding
-        var padded = new byte[paddedLen];
-        Array.Copy(plaintext, padded, plaintext.Length);
-        byte padByte = (byte)(paddedLen - plaintext.Length);
-        for (int i = plaintext.Length; i < paddedLen; i++)
-            padded[i] = padByte;
-        return BleCryptoLegacy.EncryptCbc(_key, _iv, padded);
+        using var aes = Aes.Create();
+        aes.Key = _key;
+        return aes.EncryptCbc(plaintext, _iv, PaddingMode.PKCS7);
     }
 
     public byte[] Decrypt(byte[] ciphertext)
     {
         if (!_initialized) throw new InvalidOperationException("ECDH handshake not complete");
-        var decrypted = BleCryptoLegacy.DecryptCbc(_key, _iv, ciphertext);
-        // Remove PKCS7 padding
-        if (decrypted.Length > 0)
+        using var aes = Aes.Create();
+        aes.Key = _key;
+        try
         {
-            byte padLen = decrypted[^1];
-            if (padLen > 0 && padLen <= 16 && decrypted.Length >= padLen)
-            {
-                bool validPad = true;
-                for (int i = decrypted.Length - padLen; i < decrypted.Length; i++)
-                    if (decrypted[i] != padLen) { validPad = false; break; }
-                if (validPad)
-                    return decrypted[..^padLen];
-            }
+            return aes.DecryptCbc(ciphertext, _iv, PaddingMode.PKCS7);
         }
-        return decrypted;
+        catch (CryptographicException)
+        {
+            // Some responses don't have proper PKCS7 padding
+            return aes.DecryptCbc(ciphertext, _iv, PaddingMode.None);
+        }
     }
 
     /// <summary>

@@ -128,6 +128,16 @@ public static class BlePacketParser
             payload = data[payloadStart..(payloadStart + payloadLen)].ToArray();
         }
 
+        // XOR decrypt payload if seq[0] != 0 (Delta 3 and similar devices)
+        if (seq[0] != 0 && payload.Length > 0)
+        {
+            var xorKey = seq[0];
+            var decoded = new byte[payload.Length];
+            for (int i = 0; i < payload.Length; i++)
+                decoded[i] = (byte)(payload[i] ^ xorKey);
+            payload = decoded;
+        }
+
         return new BlePacket
         {
             Version = version,

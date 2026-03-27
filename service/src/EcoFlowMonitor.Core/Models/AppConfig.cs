@@ -6,6 +6,7 @@ public class AppConfig
     public List<DeviceConfig> Devices { get; set; } = new();
     public GeneralSettings General { get; set; } = new();
     public string LocalUserId { get; set; } = "";
+    public string CloudUserId { get; set; } = "";
     public bool IsConfigured =>
         (Account != null && !string.IsNullOrEmpty(Account.Email))
         || Devices.Any(d => d.ConnectionType == ConnectionType.Ble);

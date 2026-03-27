@@ -40,6 +40,7 @@ public partial class LoginViewModel : ViewModelBase
 
             // Save account
             _config.Account = new AccountConfig { Email = Email, Password = Password };
+            _config.CloudUserId = client.UserId ?? "";
 
             // Add discovered devices
             foreach (var (sn, name) in devices)

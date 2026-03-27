@@ -11,6 +11,13 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
     <PackageReference Include="NSec.Cryptography" Version="24.4.0" />
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.5.1" />
+    <PackageReference Include="Google.Protobuf" Version="3.28.3" />
+    <PackageReference Include="Grpc.Tools" Version="2.68.1" PrivateAssets="All" />
+  </ItemGroup>
+  <ItemGroup>
+    <Protobuf Include="Proto/pd335_sys.proto" GrpcServices="None" />
+    <Protobuf Include="Proto/pd335_bms_bp.proto" GrpcServices="None" />
+    <!-- pd303.proto excluded: has duplicate field name that breaks C# codegen -->
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Protocol/keydata.b64" />
