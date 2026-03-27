@@ -100,11 +100,14 @@ public partial class DashboardViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void CycleConnectionMode()
+    private async Task CycleConnectionModeAsync()
     {
         if (SelectedDevice == null) return;
         SelectedDevice.CycleConnectionMode();
         ConfigManager.Save(_config);
-        // TODO: restart monitor with new mode
+
+        // Restart the monitor with the new mode
+        await _orchestrator.RestartDeviceAsync(SelectedDevice.Config);
+        SelectedDevice.StatusText = $"Switching to {SelectedDevice.ConnectionBadge}...";
     }
 }

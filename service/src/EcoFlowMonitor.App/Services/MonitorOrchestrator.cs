@@ -196,6 +196,46 @@ public class MonitorOrchestrator : IDisposable
         DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(e.State, source));
     }
 
+    /// <summary>
+    /// Stop the current monitor for a device and restart with its current ConnectionMode.
+    /// </summary>
+    public async Task RestartDeviceAsync(DeviceConfig device)
+    {
+        var existing = _monitors.FirstOrDefault(m => m.Device.SerialNumber == device.SerialNumber);
+        if (existing != null)
+        {
+            Logger.Log($"MonitorOrchestrator: stopping monitor for {device.SerialNumber}");
+            try { await existing.Monitor.StopAsync(); } catch { }
+            existing.Monitor.Dispose();
+            _monitors.Remove(existing);
+        }
+
+        // Re-create state (keep existing data if available)
+        var state = existing?.State ?? new DeviceState
+        {
+            DeviceName = device.DisplayName,
+            SerialNumber = device.SerialNumber
+        };
+
+        switch (device.ConnectionMode)
+        {
+            case ConnectionMode.Cloud:
+                if (_config.Account != null && !string.IsNullOrEmpty(_config.Account.Email))
+                    _ = Task.Run(() => ConnectMqttAsync(device, state));
+                break;
+            case ConnectionMode.Ble:
+                if (device.HasBle)
+                    StartBleMonitor(device, state);
+                break;
+            case ConnectionMode.Auto:
+                if (device.HasBle && !string.IsNullOrEmpty(GetUserId()))
+                    StartBleMonitor(device, state);
+                else if (_config.Account != null)
+                    _ = Task.Run(() => ConnectMqttAsync(device, state));
+                break;
+        }
+    }
+
     public async Task StopAsync()
     {
         foreach (var entry in _monitors)
