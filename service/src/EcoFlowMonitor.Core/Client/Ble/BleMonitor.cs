@@ -77,6 +77,16 @@ public class BleMonitor : IDeviceMonitor
             ProtocolVersion = _config.BleProtocolVersion
         };
 
+        // Quick scan to ensure CoreBluetooth has discovered the peripheral
+        // (the BLE address cache doesn't persist across app restarts on macOS)
+        Logger.Log($"BleMonitor: scanning for device {deviceInfo.Address}...");
+        using var scanCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        scanCts.CancelAfter(TimeSpan.FromSeconds(8));
+        try { await _adapter.StartScanAsync(scanCts.Token); }
+        catch (OperationCanceledException) { } // scan timeout is expected
+        _adapter.StopScan();
+        Logger.Log("BleMonitor: scan complete, connecting...");
+
         // Start with no encryption — handshake frames are unencrypted
         _crypto = new BleCryptoModern();
         _transport = new BleTransport(deviceInfo, _adapter, crypto: null);
@@ -285,9 +295,10 @@ public class BleMonitor : IDeviceMonitor
             if (BleDispatcher.Dispatch(packet, out var bms, out var display, out var ems))
             {
                 var previousPower = _state.Power.Status;
-                if (bms != null) _state.Bms = bms;
-                if (display != null) _state.Display = display;
-                if (ems != null) _state.Ems = ems;
+                // Merge incoming data into existing state (don't replace — BLE sends partial updates)
+                if (bms != null) MergeBms(_state, bms);
+                if (display != null) MergeDisplay(_state, display);
+                if (ems != null) MergeEms(_state, ems);
                 _state.Power = PowerStateMachine.Update(_state.Power, _state);
                 _state.LastUpdated = DateTime.Now;
                 StateChanged?.Invoke(this, new StateChangedEventArgs(_state, previousPower));
@@ -297,6 +308,54 @@ public class BleMonitor : IDeviceMonitor
         {
             Logger.Log($"BleMonitor: packet error — {ex.Message}");
         }
+    }
+
+    // ── Merge helpers: only overwrite fields that have actual data ──
+
+    private static void MergeBms(DeviceState state, BmsData src)
+    {
+        state.Bms ??= new BmsData();
+        var dst = state.Bms;
+        if (src.BatteryPct.HasValue) dst.BatteryPct = src.BatteryPct;
+        if (src.VoltageV.HasValue) dst.VoltageV = src.VoltageV;
+        if (src.CurrentA.HasValue) dst.CurrentA = src.CurrentA;
+        if (src.TempC.HasValue) dst.TempC = src.TempC;
+        if (src.RemainMin.HasValue) dst.RemainMin = src.RemainMin;
+        if (src.Cycles.HasValue) dst.Cycles = src.Cycles;
+        if (src.SohPct.HasValue) dst.SohPct = src.SohPct;
+        if (src.InputW.HasValue) dst.InputW = src.InputW;
+        if (src.OutputW.HasValue) dst.OutputW = src.OutputW;
+        if (src.DesignCapMah.HasValue) dst.DesignCapMah = src.DesignCapMah;
+        if (src.RemainCapMah.HasValue) dst.RemainCapMah = src.RemainCapMah;
+    }
+
+    private static void MergeDisplay(DeviceState state, DisplayData src)
+    {
+        state.Display ??= new DisplayData();
+        var dst = state.Display;
+        if (src.TotalInW.HasValue) dst.TotalInW = src.TotalInW;
+        if (src.TotalOutW.HasValue) dst.TotalOutW = src.TotalOutW;
+        if (src.AcInW.HasValue) dst.AcInW = src.AcInW;
+        if (src.SolarInHighW.HasValue) dst.SolarInHighW = src.SolarInHighW;
+        if (src.SolarInLowW.HasValue) dst.SolarInLowW = src.SolarInLowW;
+        if (src.UsbA1W.HasValue) dst.UsbA1W = src.UsbA1W;
+        if (src.UsbA2W.HasValue) dst.UsbA2W = src.UsbA2W;
+        if (src.UsbC1W.HasValue) dst.UsbC1W = src.UsbC1W;
+        if (src.UsbC2W.HasValue) dst.UsbC2W = src.UsbC2W;
+        if (src.AcPluggedIn.HasValue) dst.AcPluggedIn = src.AcPluggedIn;
+        if (src.AcInFreqHz.HasValue) dst.AcInFreqHz = src.AcInFreqHz;
+    }
+
+    private static void MergeEms(DeviceState state, EmsData src)
+    {
+        state.Ems ??= new EmsData();
+        var dst = state.Ems;
+        if (src.ChgState.HasValue) dst.ChgState = src.ChgState;
+        if (src.FanLevel.HasValue) dst.FanLevel = src.FanLevel;
+        if (src.MaxChargeSoc.HasValue) dst.MaxChargeSoc = src.MaxChargeSoc;
+        if (src.UpsMode.HasValue) dst.UpsMode = src.UpsMode;
+        if (src.ChgRemainMin.HasValue) dst.ChgRemainMin = src.ChgRemainMin;
+        if (src.DsgRemainMin.HasValue) dst.DsgRemainMin = src.DsgRemainMin;
     }
 
     public async Task StopAsync()
