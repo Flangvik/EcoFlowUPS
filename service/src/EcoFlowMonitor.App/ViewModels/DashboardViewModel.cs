@@ -43,20 +43,23 @@ public partial class DashboardViewModel : ViewModelBase
 
     private void OnDeviceUpdated(object? sender, DeviceStateEventArgs e)
     {
-        var vm = Devices.FirstOrDefault(d => d.SerialNumber == e.State.SerialNumber);
-        if (vm != null)
+        // Marshal to UI thread — StateChanged fires from background MQTT/BLE threads
+        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
-            // Status messages (e.g. "Scanning for BLE...") go to StatusText
-            if (e.Source.Contains("..."))
+            var vm = Devices.FirstOrDefault(d => d.SerialNumber == e.State.SerialNumber);
+            if (vm != null)
             {
-                vm.StatusText = e.Source;
-                return;
-            }
+                if (e.Source.Contains("..."))
+                {
+                    vm.StatusText = e.Source;
+                    return;
+                }
 
-            vm.StatusText = "";
-            vm.UpdateFromState(e.State);
-            vm.SetActiveSource($"via {e.Source}");
-        }
+                vm.StatusText = "";
+                vm.UpdateFromState(e.State);
+                vm.SetActiveSource($"via {e.Source}");
+            }
+        });
     }
 
     [RelayCommand]

@@ -96,10 +96,16 @@ public class BleTransport : IDisposable
         {
             var remaining = bufData.AsSpan(offset);
             var result = BlePacketParser.TryParseFrame(remaining);
-            if (result == null) break;
+            if (result == null)
+            {
+                if (remaining.Length > 6)
+                    Logger.Log($"BleTransport: TryParseFrame returned null, buffer={remaining.Length}b prefix={Convert.ToHexString(remaining[..Math.Min(8, remaining.Length)])}");
+                break;
+            }
 
             var (frameType, encPayload, consumed) = result.Value;
             offset += consumed;
+            Logger.Log($"BleTransport: frame parsed ft={frameType} payload={encPayload.Length}b consumed={consumed}");
 
             byte[] decrypted;
             if (_crypto != null && frameType != 0x00)
@@ -107,7 +113,7 @@ public class BleTransport : IDisposable
                 try { decrypted = _crypto.Decrypt(encPayload); }
                 catch (Exception ex)
                 {
-                    Logger.Log($"BleTransport: decrypt failed — {ex.Message}");
+                    Logger.Log($"BleTransport: decrypt failed — {ex.GetType().Name}: {ex.Message}");
                     continue;
                 }
             }
@@ -116,11 +122,19 @@ public class BleTransport : IDisposable
                 decrypted = encPayload;
             }
 
+            Logger.Log($"BleTransport: decrypted {decrypted.Length}b, first={Convert.ToHexString(decrypted[..Math.Min(4, decrypted.Length)])}");
             RawFrameReceived?.Invoke(this, decrypted);
 
             var packet = BlePacketParser.ParsePacket(decrypted);
             if (packet != null)
+            {
+                Logger.Log($"BleTransport: packet src=0x{packet.Src:X2} cs=0x{packet.CmdSet:X2} ci=0x{packet.CmdId:X2} payload={packet.Payload.Length}b");
                 PacketReceived?.Invoke(this, packet);
+            }
+            else
+            {
+                Logger.Log($"BleTransport: ParsePacket returned null for {decrypted.Length}b");
+            }
         }
 
         if (offset > 0)

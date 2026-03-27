@@ -292,21 +292,26 @@ public class BleMonitor : IDeviceMonitor
                 return;
             }
 
-            if (BleDispatcher.Dispatch(packet, out var bms, out var display, out var ems))
+            var dispatched = BleDispatcher.Dispatch(packet, out var bms, out var display, out var ems);
+            if (dispatched)
             {
                 var previousPower = _state.Power.Status;
-                // Merge incoming data into existing state (don't replace — BLE sends partial updates)
                 if (bms != null) MergeBms(_state, bms);
                 if (display != null) MergeDisplay(_state, display);
                 if (ems != null) MergeEms(_state, ems);
                 _state.Power = PowerStateMachine.Update(_state.Power, _state);
                 _state.LastUpdated = DateTime.Now;
+                Logger.Log($"BleMonitor: data updated — batt={_state.Bms?.BatteryPct}% in={_state.Display?.TotalInW}W out={_state.Display?.TotalOutW}W");
                 StateChanged?.Invoke(this, new StateChangedEventArgs(_state, previousPower));
+            }
+            else
+            {
+                Logger.Log($"BleMonitor: dispatch returned false for src=0x{packet.Src:X2} cs=0x{packet.CmdSet:X2} ci=0x{packet.CmdId:X2}");
             }
         }
         catch (Exception ex)
         {
-            Logger.Log($"BleMonitor: packet error — {ex.Message}");
+            Logger.Log($"BleMonitor: packet error — {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
         }
     }
 
