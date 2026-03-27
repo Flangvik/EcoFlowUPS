@@ -131,7 +131,11 @@ public class BleMonitor : IDeviceMonitor
         // The Python code uses to_string() which gives just X+Y (40 bytes for secp160r1)
         var pubKeyRaw = pubKeyBytes.Length > 40 ? pubKeyBytes[1..] : pubKeyBytes;
 
+        // Brief delay to let notifications settle after subscribe
+        await Task.Delay(500, ct);
+
         Logger.Log($"BleMonitor: sending public key ({pubKeyRaw.Length} bytes)");
+        Logger.Log($"BleMonitor: pubkey hex: {Convert.ToHexString(pubKeyRaw)}");
 
         // Step 2: Send public key in unencrypted frame
         var pubKeyPayload = new byte[2 + pubKeyRaw.Length];
@@ -140,6 +144,7 @@ public class BleMonitor : IDeviceMonitor
         Array.Copy(pubKeyRaw, 0, pubKeyPayload, 2, pubKeyRaw.Length);
 
         var pubKeyFrame = BlePacketBuilder.WrapInFrame(pubKeyPayload, 0x00); // unencrypted command
+        Logger.Log($"BleMonitor: sending frame ({pubKeyFrame.Length} bytes): {Convert.ToHexString(pubKeyFrame)}");
         _handshakeTcs = new TaskCompletionSource<byte[]>();
         await _transport!.SendAsync(pubKeyFrame, ct);
 

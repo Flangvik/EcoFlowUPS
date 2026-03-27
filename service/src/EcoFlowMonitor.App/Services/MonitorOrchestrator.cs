@@ -95,6 +95,13 @@ public class MonitorOrchestrator : IDisposable
 
         var state = new DeviceState { DeviceName = device.DisplayName, SerialNumber = device.SerialNumber };
 
+        // Don't add if already monitoring this device
+        if (_monitors.Any(m => m.Device.SerialNumber == serialNumber))
+        {
+            Logger.Log($"MonitorOrchestrator: device {serialNumber} already monitored, skipping");
+            return;
+        }
+
         Logger.Log($"MonitorOrchestrator: AddBleDevice sn={serialNumber} addr={bleAddress} enc={encryptionType} adapter={_bleAdapter.GetType().Name}");
         var monitor = new BleMonitor(device, state, _config.LocalUserId, _bleAdapter);
         var entry = new MonitorEntry(device, state, monitor);

@@ -92,8 +92,9 @@ public static class BlePacketBuilder
         ms.WriteByte((byte)(frameType << 4));
         ms.WriteByte(0x01);
 
+        // Length field includes payload + 2 bytes for trailing CRC16
         var lenBytes = new byte[2];
-        BinaryPrimitives.WriteUInt16LittleEndian(lenBytes, (ushort)payload.Length);
+        BinaryPrimitives.WriteUInt16LittleEndian(lenBytes, (ushort)(payload.Length + 2));
         ms.Write(lenBytes);
         ms.Write(payload);
 

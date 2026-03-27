@@ -45,15 +45,28 @@ public class BleScanner : IDisposable
         try
         {
             var name = e.Name;
-            if (!name.StartsWith("EF-", StringComparison.OrdinalIgnoreCase)) return;
-            if (e.ManufacturerId != EcoFlowManufacturerId) return;
+            bool nameMatch = name.StartsWith("EF-", StringComparison.OrdinalIgnoreCase)
+                          || name.StartsWith("Ecoflow", StringComparison.OrdinalIgnoreCase);
+            bool mfgMatch = e.ManufacturerId == EcoFlowManufacturerId;
+
+            if (!nameMatch && !mfgMatch) return;
 
             var data = e.ManufacturerData;
-            if (data == null || data.Length < 18) return;
+            string serialNumber;
+            int protoVersion = 3;
+            int encryptionType = 7;
 
-            int protoVersion = data[0];
-            string serialNumber = Encoding.ASCII.GetString(data, 1, 16).TrimEnd('\0');
-            int encryptionType = data.Length > 22 ? (data[22] >> 3) & 0x07 : 1;
+            if (data != null && data.Length >= 18)
+            {
+                protoVersion = data[0];
+                serialNumber = Encoding.ASCII.GetString(data, 1, 16).TrimEnd('\0');
+                encryptionType = data.Length > 22 ? (data[22] >> 3) & 0x07 : 7;
+            }
+            else
+            {
+                // No manufacturer data — use device address as identifier
+                serialNumber = e.DeviceId;
+            }
 
             if (string.IsNullOrEmpty(serialNumber)) return;
             if (!_seen.Add(serialNumber)) return;

@@ -65,6 +65,7 @@ public class BleTransport : IDisposable
     private void OnNotification(object? sender, byte[] data)
     {
         if (data.Length == 0) return;
+        Logger.Log($"BleTransport: raw notification {data.Length} bytes: {Convert.ToHexString(data[..Math.Min(data.Length, 32)])}...");
         try
         {
             lock (_bufferLock)
