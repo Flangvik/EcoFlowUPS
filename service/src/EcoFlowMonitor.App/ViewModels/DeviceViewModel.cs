@@ -11,12 +11,12 @@ public partial class DeviceViewModel : ViewModelBase
     public string DisplayName => _device.DisplayName;
     public string? SerialNumber => _device.SerialNumber;
     public DeviceConfig Config => _device;
-    public string ConnectionBadge => _device.ConnectionMode switch
-    {
-        ConnectionMode.Ble => "BLE",
-        ConnectionMode.Auto => _device.HasBle ? "AUTO" : "CLOUD",
-        _ => "CLOUD"
-    };
+
+    // Connection info
+    [ObservableProperty] private string _connectionBadge = "CLOUD";
+    [ObservableProperty] private string _activeSource = "";  // "via BLE" or "via Cloud"
+    [ObservableProperty] private string _statusText = "";     // "Scanning for BLE..." etc.
+    [ObservableProperty] private ConnectionMode _connectionMode;
 
     // Live state
     [ObservableProperty] private bool _isConnected;
@@ -45,6 +45,38 @@ public partial class DeviceViewModel : ViewModelBase
     public DeviceViewModel(DeviceConfig device)
     {
         _device = device;
+        ConnectionMode = device.ConnectionMode;
+        UpdateBadge();
+    }
+
+    public void UpdateBadge()
+    {
+        ConnectionBadge = _device.ConnectionMode switch
+        {
+            ConnectionMode.Ble => "BLE",
+            ConnectionMode.Auto => "AUTO",
+            _ => "CLOUD"
+        };
+    }
+
+    /// <summary>Set the active data source indicator (called by orchestrator).</summary>
+    public void SetActiveSource(string source)
+    {
+        ActiveSource = source;
+    }
+
+    /// <summary>Cycle connection mode: Cloud → Auto → BLE → Cloud.</summary>
+    public void CycleConnectionMode()
+    {
+        _device.ConnectionMode = _device.ConnectionMode switch
+        {
+            ConnectionMode.Cloud => _device.HasBle ? ConnectionMode.Auto : ConnectionMode.Cloud,
+            ConnectionMode.Auto => ConnectionMode.Ble,
+            ConnectionMode.Ble => ConnectionMode.Cloud,
+            _ => ConnectionMode.Cloud
+        };
+        ConnectionMode = _device.ConnectionMode;
+        UpdateBadge();
     }
 
     public void UpdateFromState(DeviceState state)

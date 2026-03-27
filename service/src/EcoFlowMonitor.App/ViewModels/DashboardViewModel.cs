@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using EcoFlowMonitor.Config;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Services;
 using EcoFlowMonitor.State;
@@ -42,9 +43,20 @@ public partial class DashboardViewModel : ViewModelBase
 
     private void OnDeviceUpdated(object? sender, DeviceStateEventArgs e)
     {
-        // Find matching device VM and update it
         var vm = Devices.FirstOrDefault(d => d.SerialNumber == e.State.SerialNumber);
-        vm?.UpdateFromState(e.State);
+        if (vm != null)
+        {
+            // Status messages (e.g. "Scanning for BLE...") go to StatusText
+            if (e.Source.Contains("..."))
+            {
+                vm.StatusText = e.Source;
+                return;
+            }
+
+            vm.StatusText = "";
+            vm.UpdateFromState(e.State);
+            vm.SetActiveSource($"via {e.Source}");
+        }
     }
 
     [RelayCommand]
@@ -85,5 +97,14 @@ public partial class DashboardViewModel : ViewModelBase
     private void AddRule()
     {
         // TODO: open rule wizard for selected device
+    }
+
+    [RelayCommand]
+    private void CycleConnectionMode()
+    {
+        if (SelectedDevice == null) return;
+        SelectedDevice.CycleConnectionMode();
+        ConfigManager.Save(_config);
+        // TODO: restart monitor with new mode
     }
 }

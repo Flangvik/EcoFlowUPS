@@ -79,6 +79,10 @@ public class MonitorOrchestrator : IDisposable
         if (string.IsNullOrEmpty(userId)) return;
 
         Logger.Log($"MonitorOrchestrator: starting BLE monitor for {device.DisplayName} sn={device.SerialNumber}");
+
+        // Notify UI about BLE scanning status
+        DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(state, "Scanning for BLE..."));
+
         var monitor = new BleMonitor(device, state, userId, _bleAdapter);
         var entry = new MonitorEntry(device, state, monitor);
         _monitors.Add(entry);
@@ -188,7 +192,8 @@ public class MonitorOrchestrator : IDisposable
             }
             TriggerEvaluator.RecordFired(rule, e.State);
         }
-        DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(e.State));
+        var source = entry.Monitor is BleMonitor ? "BLE" : "Cloud";
+        DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(e.State, source));
     }
 
     public async Task StopAsync()
@@ -244,5 +249,10 @@ public class MonitorOrchestrator : IDisposable
 public class DeviceStateEventArgs : EventArgs
 {
     public DeviceState State { get; }
-    public DeviceStateEventArgs(DeviceState state) => State = state;
+    public string Source { get; }
+    public DeviceStateEventArgs(DeviceState state, string source = "Cloud")
+    {
+        State = state;
+        Source = source;
+    }
 }

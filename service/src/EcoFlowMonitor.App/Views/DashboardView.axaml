@@ -104,8 +104,19 @@
                                 </Ellipse>
                                 <TextBlock Text="{Binding IsConnected, Converter={x:Static converters:ConnectedTextConverter.Instance}}"
                                            Classes="BodySmall" />
+                                <TextBlock Text="{Binding ActiveSource}" Classes="BodySmall"
+                                           Foreground="{StaticResource AccentPrimary}" />
                             </StackPanel>
-                            <TextBlock Text="{Binding DisplayName}" Classes="BodySmall" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="{Binding DisplayName}" Classes="BodySmall" />
+                                <Button Classes="Ghost" Padding="6,2" FontSize="10"
+                                        Content="{Binding ConnectionBadge}"
+                                        Command="{Binding DataContext.CycleConnectionModeCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        ToolTip.Tip="Click to cycle: Cloud → Auto → BLE" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding StatusText}" Classes="BodySmall"
+                                       Foreground="{StaticResource TextMuted}"
+                                       IsVisible="{Binding StatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                         </StackPanel>
                     </Grid>
 
