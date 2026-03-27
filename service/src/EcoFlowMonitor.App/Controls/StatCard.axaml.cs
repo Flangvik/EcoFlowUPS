@@ -24,38 +24,60 @@ public partial class StatCard : UserControl
     public static readonly StyledProperty<IBrush?> ValueColorProperty =
         AvaloniaProperty.Register<StatCard, IBrush?>(nameof(ValueColor));
 
-    // Computed display properties (read-only styled properties)
-    public static readonly StyledProperty<string> DisplayValueProperty =
-        AvaloniaProperty.Register<StatCard, string>(nameof(DisplayValue), "0");
-
-    public static readonly StyledProperty<bool> HasUnitProperty =
-        AvaloniaProperty.Register<StatCard, bool>(nameof(HasUnit), false);
-
     public string Label { get => GetValue(LabelProperty); set => SetValue(LabelProperty, value); }
     public double Value { get => GetValue(ValueProperty); set => SetValue(ValueProperty, value); }
     public string Unit { get => GetValue(UnitProperty); set => SetValue(UnitProperty, value); }
     public string Format { get => GetValue(FormatProperty); set => SetValue(FormatProperty, value); }
     public string? StringValue { get => GetValue(StringValueProperty); set => SetValue(StringValueProperty, value); }
     public IBrush? ValueColor { get => GetValue(ValueColorProperty); set => SetValue(ValueColorProperty, value); }
-    public string DisplayValue { get => GetValue(DisplayValueProperty); private set => SetValue(DisplayValueProperty, value); }
-    public bool HasUnit { get => GetValue(HasUnitProperty); private set => SetValue(HasUnitProperty, value); }
 
-    static StatCard()
-    {
-        ValueProperty.Changed.AddClassHandler<StatCard>((s, _) => s.Recompute());
-        StringValueProperty.Changed.AddClassHandler<StatCard>((s, _) => s.Recompute());
-        FormatProperty.Changed.AddClassHandler<StatCard>((s, _) => s.Recompute());
-        UnitProperty.Changed.AddClassHandler<StatCard>((s, _) => s.Recompute());
-    }
+    private TextBlock? _labelTb;
+    private TextBlock? _valueTb;
+    private TextBlock? _unitTb;
+    private bool _loaded;
 
     public StatCard()
     {
         InitializeComponent();
     }
 
-    private void Recompute()
+    protected override void OnLoaded(Avalonia.Interactivity.RoutedEventArgs e)
     {
-        DisplayValue = StringValue ?? Value.ToString(Format);
-        HasUnit = !string.IsNullOrEmpty(Unit);
+        base.OnLoaded(e);
+        _labelTb = this.FindControl<TextBlock>("LabelText");
+        _valueTb = this.FindControl<TextBlock>("ValueText");
+        _unitTb = this.FindControl<TextBlock>("UnitText");
+        _loaded = true;
+        UpdateDisplay();
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+        if (_loaded && (change.Property == ValueProperty || change.Property == StringValueProperty ||
+                        change.Property == FormatProperty || change.Property == LabelProperty ||
+                        change.Property == UnitProperty || change.Property == ValueColorProperty))
+        {
+            UpdateDisplay();
+        }
+    }
+
+    private void UpdateDisplay()
+    {
+        if (_labelTb != null)
+            _labelTb.Text = Label;
+
+        if (_valueTb != null)
+        {
+            _valueTb.Text = StringValue ?? Value.ToString(Format);
+            if (ValueColor != null)
+                _valueTb.Foreground = ValueColor;
+        }
+
+        if (_unitTb != null)
+        {
+            _unitTb.Text = Unit;
+            _unitTb.IsVisible = !string.IsNullOrEmpty(Unit);
+        }
     }
 }

@@ -43,7 +43,6 @@ public partial class DashboardViewModel : ViewModelBase
 
     private void OnDeviceUpdated(object? sender, DeviceStateEventArgs e)
     {
-        // Marshal to UI thread — StateChanged fires from background MQTT/BLE threads
         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
         {
             var vm = Devices.FirstOrDefault(d => d.SerialNumber == e.State.SerialNumber);
@@ -54,7 +53,6 @@ public partial class DashboardViewModel : ViewModelBase
                     vm.StatusText = e.Source;
                     return;
                 }
-
                 vm.StatusText = "";
                 vm.UpdateFromState(e.State);
                 vm.SetActiveSource($"via {e.Source}");
