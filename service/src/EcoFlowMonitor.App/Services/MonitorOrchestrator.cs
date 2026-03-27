@@ -33,6 +33,8 @@ public class MonitorOrchestrator : IDisposable
         foreach (var device in _config.Devices)
         {
             if (string.IsNullOrEmpty(device.SerialNumber)) continue;
+            // Skip if already monitoring this device
+            if (_monitors.Any(m => m.Device.SerialNumber == device.SerialNumber)) continue;
 
             var state = new DeviceState
             {

@@ -15,7 +15,8 @@ public static class BlePacketBuilder
         // MD5(userId + serialNumber) -> uppercase hex string -> UTF8 bytes
         var input = Encoding.UTF8.GetBytes(userId + serialNumber);
         var hash = MD5.HashData(input);
-        var hexPayload = Encoding.UTF8.GetBytes(Convert.ToHexString(hash).ToLowerInvariant());
+        // Device expects UPPERCASE hex (matching ha-ef-ble Python reference)
+        var hexPayload = Encoding.UTF8.GetBytes(Convert.ToHexString(hash));
 
         return BuildPacket(
             src: 0x21,
