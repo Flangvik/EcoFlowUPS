@@ -9,7 +9,7 @@ public class AppConfig
     public string CloudUserId { get; set; } = "";
     public bool IsConfigured =>
         (Account != null && !string.IsNullOrEmpty(Account.Email))
-        || Devices.Any(d => d.ConnectionType == ConnectionType.Ble);
+        || Devices.Any(d => d.HasBle);
 }
 
 public class GeneralSettings

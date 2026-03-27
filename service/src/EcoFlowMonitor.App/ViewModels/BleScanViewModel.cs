@@ -91,10 +91,13 @@ public partial class BleScanViewModel : ViewModelBase
 
         try
         {
-            await _orchestrator.AddBleDeviceAsync(
+            var deviceConfig = _orchestrator.MergeBleScanResult(
                 device.Name, device.SerialNumber, device.Address,
                 device.EncryptionType, device.ProtocolVersion);
 
+            _orchestrator.StartBleForDevice(deviceConfig);
+
+            // Navigate to dashboard
             var dashboard = App.Services!.GetRequiredService<DashboardViewModel>();
             _navigation.NavigateTo(dashboard);
         }

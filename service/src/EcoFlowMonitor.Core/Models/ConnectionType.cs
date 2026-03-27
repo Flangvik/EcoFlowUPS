@@ -1,3 +1,6 @@
 namespace EcoFlowMonitor.Models;
 
-public enum ConnectionType { Cloud, Ble }
+/// <summary>
+/// How to connect to this device. Auto tries BLE first, falls back to Cloud.
+/// </summary>
+public enum ConnectionMode { Cloud, Ble, Auto }

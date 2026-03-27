@@ -33,7 +33,6 @@ public class MonitorOrchestrator : IDisposable
         foreach (var device in _config.Devices)
         {
             if (string.IsNullOrEmpty(device.SerialNumber)) continue;
-            // Skip if already monitoring this device
             if (_monitors.Any(m => m.Device.SerialNumber == device.SerialNumber)) continue;
 
             var state = new DeviceState
@@ -42,22 +41,53 @@ public class MonitorOrchestrator : IDisposable
                 SerialNumber = device.SerialNumber
             };
 
-            if (device.ConnectionType == ConnectionType.Cloud)
+            switch (device.ConnectionMode)
             {
-                if (_config.Account == null || string.IsNullOrEmpty(_config.Account.Email)) continue;
-                _ = Task.Run(() => ConnectMqttAsync(device, state));
-            }
-            else if (device.ConnectionType == ConnectionType.Ble)
-            {
-                if (string.IsNullOrEmpty(_config.CloudUserId) && string.IsNullOrEmpty(_config.LocalUserId)) continue;
-                var userId = !string.IsNullOrEmpty(_config.CloudUserId) ? _config.CloudUserId : _config.LocalUserId;
-                var monitor = new BleMonitor(device, state, userId, _bleAdapter);
-                var entry = new MonitorEntry(device, state, monitor);
-                _monitors.Add(entry);
-                monitor.StateChanged += (s, e) => OnStateChanged(entry, e);
-                _ = Task.Run(() => monitor.StartAsync());
+                case ConnectionMode.Cloud:
+                    if (_config.Account == null || string.IsNullOrEmpty(_config.Account.Email)) continue;
+                    _ = Task.Run(() => ConnectMqttAsync(device, state));
+                    break;
+
+                case ConnectionMode.Ble:
+                    if (!device.HasBle) continue;
+                    StartBleMonitor(device, state);
+                    break;
+
+                case ConnectionMode.Auto:
+                    // Try BLE first if available, otherwise Cloud
+                    if (device.HasBle && !string.IsNullOrEmpty(GetUserId()))
+                    {
+                        StartBleMonitor(device, state);
+                    }
+                    else if (_config.Account != null && !string.IsNullOrEmpty(_config.Account.Email))
+                    {
+                        _ = Task.Run(() => ConnectMqttAsync(device, state));
+                    }
+                    break;
             }
         }
+    }
+
+    private string GetUserId()
+    {
+        return !string.IsNullOrEmpty(_config.CloudUserId) ? _config.CloudUserId : _config.LocalUserId;
+    }
+
+    private void StartBleMonitor(DeviceConfig device, DeviceState state)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId)) return;
+
+        Logger.Log($"MonitorOrchestrator: starting BLE monitor for {device.DisplayName} sn={device.SerialNumber}");
+        var monitor = new BleMonitor(device, state, userId, _bleAdapter);
+        var entry = new MonitorEntry(device, state, monitor);
+        _monitors.Add(entry);
+        monitor.StateChanged += (s, e) => OnStateChanged(entry, e);
+        _ = Task.Run(async () =>
+        {
+            try { await monitor.StartAsync(); }
+            catch (Exception ex) { Logger.Log($"MonitorOrchestrator: BLE monitor crashed — {ex.GetType().Name}: {ex.Message}"); }
+        });
     }
 
     private async Task ConnectMqttAsync(DeviceConfig device, DeviceState state)
@@ -76,59 +106,78 @@ public class MonitorOrchestrator : IDisposable
         }
         catch (Exception ex)
         {
-            Logger.Log($"MonitorOrchestrator: connect failed for {device.DisplayName}: {ex.Message}");
+            Logger.Log($"MonitorOrchestrator: MQTT connect failed for {device.DisplayName}: {ex.Message}");
         }
     }
 
-    public async Task AddBleDeviceAsync(string displayName, string serialNumber, string bleAddress, int encryptionType, int protocolVersion)
+    /// <summary>
+    /// Merge a BLE scan result into the device list.
+    /// If a device with the same SN exists, update its BLE fields.
+    /// If new, add it. Returns the device config.
+    /// </summary>
+    public DeviceConfig MergeBleScanResult(string bleName, string serialNumber, string bleAddress, int encryptionType, int protocolVersion)
     {
-        var device = new DeviceConfig
+        var existing = _config.Devices.FirstOrDefault(d => d.SerialNumber == serialNumber);
+
+        if (existing != null)
         {
-            DisplayName = displayName,
-            SerialNumber = serialNumber,
-            ConnectionType = ConnectionType.Ble,
-            BleAddress = bleAddress,
-            BleEncryptionType = encryptionType,
-            BleProtocolVersion = protocolVersion
-        };
-        _config.Devices.Add(device);
+            // Merge BLE info into existing device
+            existing.BleAddress = bleAddress;
+            existing.BleEncryptionType = encryptionType;
+            existing.BleProtocolVersion = protocolVersion;
+            existing.BleName = bleName;
+            // Upgrade to Auto if currently Cloud-only
+            if (existing.ConnectionMode == ConnectionMode.Cloud)
+                existing.ConnectionMode = ConnectionMode.Auto;
+            Logger.Log($"MonitorOrchestrator: merged BLE into existing device {existing.DisplayName} sn={serialNumber}");
+        }
+        else
+        {
+            // New device only seen via BLE
+            existing = new DeviceConfig
+            {
+                DisplayName = bleName,
+                SerialNumber = serialNumber,
+                ConnectionMode = ConnectionMode.Ble,
+                BleAddress = bleAddress,
+                BleEncryptionType = encryptionType,
+                BleProtocolVersion = protocolVersion,
+                BleName = bleName,
+                HasCloud = false
+            };
+            _config.Devices.Add(existing);
+            Logger.Log($"MonitorOrchestrator: added new BLE device {bleName} sn={serialNumber}");
+        }
+
         if (string.IsNullOrEmpty(_config.LocalUserId))
             _config.LocalUserId = Guid.NewGuid().ToString();
+
         ConfigManager.Save(_config);
+        return existing;
+    }
 
-        var state = new DeviceState { DeviceName = device.DisplayName, SerialNumber = device.SerialNumber };
-
-        // Don't add if already monitoring this device
-        if (_monitors.Any(m => m.Device.SerialNumber == serialNumber))
+    /// <summary>
+    /// Start monitoring a device that was just merged from BLE scan.
+    /// If already monitored via cloud, switch to BLE or leave as-is.
+    /// </summary>
+    public void StartBleForDevice(DeviceConfig device)
+    {
+        var existingMonitor = _monitors.FirstOrDefault(m => m.Device.SerialNumber == device.SerialNumber);
+        if (existingMonitor != null)
         {
-            Logger.Log($"MonitorOrchestrator: device {serialNumber} already monitored, skipping");
+            Logger.Log($"MonitorOrchestrator: device {device.SerialNumber} already monitored via {(existingMonitor.Monitor is BleMonitor ? "BLE" : "Cloud")}");
+            // Already connected — notify UI to refresh
+            DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(existingMonitor.State));
             return;
         }
 
-        Logger.Log($"MonitorOrchestrator: AddBleDevice sn={serialNumber} addr={bleAddress} enc={encryptionType} adapter={_bleAdapter.GetType().Name}");
-        var userId = !string.IsNullOrEmpty(_config.CloudUserId) ? _config.CloudUserId : _config.LocalUserId;
-        var monitor = new BleMonitor(device, state, userId, _bleAdapter);
-        var entry = new MonitorEntry(device, state, monitor);
-        _monitors.Add(entry);
-        monitor.StateChanged += (s, e) => OnStateChanged(entry, e);
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await monitor.StartAsync();
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"MonitorOrchestrator: BLE monitor crashed — {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
-            }
-        });
-
+        var state = new DeviceState { DeviceName = device.DisplayName, SerialNumber = device.SerialNumber };
+        StartBleMonitor(device, state);
         DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(state));
     }
 
     private void OnStateChanged(MonitorEntry entry, StateChangedEventArgs e)
     {
-        // Fire rules
         var toFire = TriggerEvaluator.Evaluate(entry.Device, e.State, e.PreviousPower);
         foreach (var rule in toFire)
         {
@@ -139,8 +188,6 @@ public class MonitorOrchestrator : IDisposable
             }
             TriggerEvaluator.RecordFired(rule, e.State);
         }
-
-        // Notify UI
         DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(e.State));
     }
 
@@ -172,9 +219,15 @@ public class MonitorOrchestrator : IDisposable
 
             foreach (var (sn, name) in devices)
             {
-                if (!_config.Devices.Any(d => d.SerialNumber == sn))
+                var existing = _config.Devices.FirstOrDefault(d => d.SerialNumber == sn);
+                if (existing == null)
                 {
-                    _config.Devices.Add(new DeviceConfig { SerialNumber = sn, DisplayName = name });
+                    _config.Devices.Add(new DeviceConfig { SerialNumber = sn, DisplayName = name, HasCloud = true });
+                }
+                else
+                {
+                    existing.HasCloud = true;
+                    // Don't override display name if user customized it
                 }
             }
             ConfigManager.Save(_config);

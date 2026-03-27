@@ -11,7 +11,12 @@ public partial class DeviceViewModel : ViewModelBase
     public string DisplayName => _device.DisplayName;
     public string? SerialNumber => _device.SerialNumber;
     public DeviceConfig Config => _device;
-    public string ConnectionBadge => _device.ConnectionType == ConnectionType.Ble ? "BLE" : "CLOUD";
+    public string ConnectionBadge => _device.ConnectionMode switch
+    {
+        ConnectionMode.Ble => "BLE",
+        ConnectionMode.Auto => _device.HasBle ? "AUTO" : "CLOUD",
+        _ => "CLOUD"
+    };
 
     // Live state
     [ObservableProperty] private bool _isConnected;
