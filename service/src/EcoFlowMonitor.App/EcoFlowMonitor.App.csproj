@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <OutputType Condition="!$(TargetFramework.Contains('macos'))">WinExe</OutputType>
+    <TargetFrameworks>net10.0;net10.0-macos</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>EcoFlowMonitor</RootNamespace>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ValidateXcodeVersion>false</ValidateXcodeVersion>
+  </PropertyGroup>
+  <!-- macOS-specific properties -->
+  <PropertyGroup Condition="$(TargetFramework.Contains('macos'))">
+    <ApplicationId>com.ecoflowmonitor.app</ApplicationId>
+    <SupportedOSPlatformVersion>14.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+  <!-- Exclude CoreBluetooth adapter from non-macOS builds -->
+  <ItemGroup Condition="!$(TargetFramework.Contains('macos'))">
+    <Compile Remove="Services/CoreBluetoothBleAdapter.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.2.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.2.3" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc3.3" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\EcoFlowMonitor.Core\EcoFlowMonitor.Core.csproj" />
+    <ProjectReference Include="..\EcoFlowMonitor.Platform.Windows\EcoFlowMonitor.Platform.Windows.csproj" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
+    <ProjectReference Include="..\EcoFlowMonitor.Platform.macOS\EcoFlowMonitor.Platform.macOS.csproj" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+    <ProjectReference Include="..\EcoFlowMonitor.Platform.Linux\EcoFlowMonitor.Platform.Linux.csproj" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
+  </ItemGroup>
+</Project>

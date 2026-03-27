@@ -1,0 +1,192 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:EcoFlowMonitor.ViewModels"
+             xmlns:controls="using:EcoFlowMonitor.Controls"
+             xmlns:converters="using:EcoFlowMonitor.Converters"
+             xmlns:models="using:EcoFlowMonitor.Models"
+             x:Class="EcoFlowMonitor.Views.DashboardView"
+             x:DataType="vm:DashboardViewModel"
+             Background="{StaticResource BackgroundPrimary}">
+
+    <Grid ColumnDefinitions="240,*">
+        <!-- LEFT SIDEBAR -->
+        <Border Grid.Column="0" Background="{StaticResource BackgroundSecondary}"
+                BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="0,0,1,0">
+            <DockPanel>
+                <!-- Bottom buttons -->
+                <WrapPanel DockPanel.Dock="Bottom" Margin="12,8,12,12" HorizontalAlignment="Stretch">
+                    <Button Classes="Ghost" Content="&#x21bb; Refresh" Command="{Binding RefreshCommand}"
+                            IsEnabled="{Binding !IsRefreshing}" Margin="0,0,4,4" />
+                    <Button Classes="Ghost" Content="&#x1F4F6; BLE Scan" Command="{Binding ScanBleCommand}"
+                            Margin="0,0,4,4" />
+                    <Button Classes="Ghost" Content="&#x2699; Settings" Command="{Binding OpenSettingsCommand}"
+                            Margin="0,0,0,4" />
+                </WrapPanel>
+
+                <!-- Device list -->
+                <StackPanel Margin="0,16,0,0">
+                    <TextBlock Text="MY DEVICES" Classes="CaptionUpper" Margin="16,0,0,12" />
+
+                    <ListBox ItemsSource="{Binding Devices}"
+                             SelectedItem="{Binding SelectedDevice}"
+                             Background="Transparent" BorderThickness="0"
+                             Padding="0">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:DeviceViewModel">
+                                <Grid ColumnDefinitions="Auto,*,Auto" Margin="16,8" Height="36">
+                                    <Ellipse Grid.Column="0" Width="8" Height="8"
+                                             Margin="0,0,10,0" VerticalAlignment="Center">
+                                        <Ellipse.Fill>
+                                            <SolidColorBrush Color="{Binding IsConnected, Converter={x:Static converters:StatusColorConverter.Instance}}" />
+                                        </Ellipse.Fill>
+                                    </Ellipse>
+                                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}"
+                                               Classes="BodyMedium" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="2" Text="{Binding ConnectionBadge}"
+                                               Classes="BodySmall" VerticalAlignment="Center"
+                                               Foreground="{StaticResource TextMuted}" FontSize="9" />
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                        <ListBox.Styles>
+                            <Style Selector="ListBoxItem">
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="CornerRadius" Value="0" />
+                            </Style>
+                            <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+                                <Setter Property="Background" Value="#1A00D4AA" />
+                            </Style>
+                            <Style Selector="ListBoxItem:selected">
+                                <Setter Property="BorderBrush" Value="{StaticResource AccentPrimary}" />
+                                <Setter Property="BorderThickness" Value="3,0,0,0" />
+                            </Style>
+                            <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{StaticResource SurfaceCardHover}" />
+                            </Style>
+                        </ListBox.Styles>
+                    </ListBox>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
+        <!-- RIGHT CONTENT -->
+        <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="16" Margin="24,16"
+                        IsVisible="{Binding SelectedDevice, Converter={x:Static ObjectConverters.IsNotNull}}">
+                <StackPanel DataContext="{Binding SelectedDevice}" Spacing="16">
+
+                    <!-- HERO: Battery + Status -->
+                    <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+                        <controls:ArcBatteryGauge Grid.Column="0" Width="140" Height="140"
+                                                   Percentage="{Binding BatteryPct}"
+                                                   Status="{Binding PowerStatus}" />
+                        <StackPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Center" Spacing="4">
+                            <TextBlock Classes="DisplayMedium">
+                                <TextBlock.Text>
+                                    <MultiBinding StringFormat="{}{0}">
+                                        <Binding Path="PowerStatus" Converter="{x:Static converters:StatusTextConverter.Instance}" />
+                                    </MultiBinding>
+                                </TextBlock.Text>
+                                <TextBlock.Foreground>
+                                    <Binding Path="PowerStatus" Converter="{x:Static converters:StatusBrushConverter.Instance}" />
+                                </TextBlock.Foreground>
+                            </TextBlock>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <Ellipse Width="6" Height="6" VerticalAlignment="Center">
+                                    <Ellipse.Fill>
+                                        <SolidColorBrush Color="{Binding IsConnected, Converter={x:Static converters:StatusColorConverter.Instance}}" />
+                                    </Ellipse.Fill>
+                                </Ellipse>
+                                <TextBlock Text="{Binding IsConnected, Converter={x:Static converters:ConnectedTextConverter.Instance}}"
+                                           Classes="BodySmall" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding DisplayName}" Classes="BodySmall" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- POWER FLOW DIAGRAM -->
+                    <controls:PowerFlowDiagram Height="180"
+                                                InputW="{Binding TotalInW}"
+                                                OutputW="{Binding TotalOutW}"
+                                                SolarW="{Binding SolarW}"
+                                                BatteryPct="{Binding BatteryPct}"
+                                                Status="{Binding PowerStatus}" />
+
+                    <!-- STATS ROW 1: Primary -->
+                    <UniformGrid Columns="5" Margin="0,8,0,0">
+                        <controls:StatCard Label="INPUT" Value="{Binding TotalInW}" Unit="W"
+                                           ValueColor="{Binding TotalInW, Converter={x:Static converters:WattColorConverter.InstanceGreen}}" />
+                        <controls:StatCard Label="SOLAR" Value="{Binding SolarW}" Unit="W"
+                                           ValueColor="{Binding SolarW, Converter={x:Static converters:WattColorConverter.InstanceGold}}" />
+                        <controls:StatCard Label="OUTPUT" Value="{Binding TotalOutW}" Unit="W"
+                                           ValueColor="{Binding TotalOutW, Converter={x:Static converters:WattColorConverter.InstanceOrange}}" />
+                        <controls:StatCard Label="REMAINING" StringValue="{Binding RemainingTime}" />
+                        <controls:StatCard Label="UPDATED" StringValue="{Binding LastUpdated}" />
+                    </UniformGrid>
+
+                    <!-- STATS ROW 2: Health -->
+                    <UniformGrid Columns="5">
+                        <controls:StatCard Label="VOLTAGE" Value="{Binding VoltageV}" Unit="V" Format="F1" />
+                        <controls:StatCard Label="TEMP" Value="{Binding TempC}" Unit="&#xB0;C" Format="F0" />
+                        <controls:StatCard Label="CYCLES" Value="{Binding Cycles}" />
+                        <controls:StatCard Label="HEALTH" Value="{Binding SohPct}" Unit="%" />
+                        <controls:StatCard Label="BATTS" StringValue="{Binding BattsConnected, StringFormat='{}{0}'}" />
+                    </UniformGrid>
+
+                    <!-- STATS ROW 3: Detail -->
+                    <UniformGrid Columns="5">
+                        <controls:StatCard Label="AC FREQ" Value="{Binding AcFreqHz}" Unit="Hz" />
+                        <controls:StatCard Label="USB OUT" Value="{Binding UsbOutW}" Unit="W" />
+                        <controls:StatCard Label="UPS MODE" StringValue="{Binding UpsMode, Converter={x:Static converters:UpsModeConverter.Instance}}" />
+                        <controls:StatCard Label="FAN" StringValue="{Binding FanLevel, Converter={x:Static converters:FanLevelConverter.Instance}}" />
+                        <controls:StatCard Label="CELL &#x394;mV" Value="{Binding CellSpreadMv}" Unit="mV" />
+                    </UniformGrid>
+
+                    <!-- POWER CHART -->
+                    <Border Classes="Card" Padding="16" Height="180">
+                        <controls:PowerHistoryChart DataContext="{Binding}" />
+                    </Border>
+
+                    <!-- RULES SECTION -->
+                    <StackPanel Spacing="8" Margin="0,8,0,24">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <TextBlock Text="RULES" Classes="CaptionUpper" VerticalAlignment="Center" />
+                            <Button Grid.Column="1" Classes="Ghost" Content="+ Add Rule"
+                                    Command="{Binding DataContext.AddRuleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </Grid>
+
+                        <!-- Empty state -->
+                        <TextBlock Text="No rules configured. Add a rule to automate actions on power events."
+                                   Classes="BodySmall" Margin="0,4,0,0"
+                                   IsVisible="{Binding !Config.Rules.Count}" />
+
+                        <!-- Rule list -->
+                        <ItemsControl ItemsSource="{Binding Config.Rules}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="models:RuleConfig">
+                                    <Border Background="{StaticResource SurfaceCard}" CornerRadius="8"
+                                            Padding="14,10" Margin="0,3"
+                                            BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="1">
+                                        <Grid ColumnDefinitions="*,Auto,Auto">
+                                            <StackPanel Spacing="2">
+                                                <TextBlock Text="{Binding Name}" Classes="BodyMedium" />
+                                                <TextBlock Text="{Binding Trigger.Type}" Classes="BodySmall" />
+                                            </StackPanel>
+                                            <ToggleSwitch Grid.Column="1" IsChecked="{Binding Enabled}"
+                                                          OnContent="" OffContent="" Margin="0,0,8,0"
+                                                          VerticalAlignment="Center" />
+                                            <Button Grid.Column="2" Classes="Ghost" Content="Edit" Padding="8,4"
+                                                    VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

@@ -1,0 +1,77 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:EcoFlowMonitor.ViewModels"
+             x:Class="EcoFlowMonitor.Views.SettingsView"
+             x:DataType="vm:SettingsViewModel"
+             Background="{StaticResource BackgroundPrimary}">
+
+    <Grid RowDefinitions="Auto,*" Margin="32">
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="16" Margin="0,0,0,24">
+            <Button Classes="Ghost" Content="&#x2190; Back" Command="{Binding GoBackCommand}" />
+            <TextBlock Text="Settings" Classes="HeadingLarge" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="24" MaxWidth="480">
+                <!-- Account -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="ACCOUNT" Classes="CaptionUpper" />
+                    <Border Classes="Card">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="{Binding AccountEmail}" Classes="BodyMedium" />
+                            <Button Classes="Danger" Content="Sign Out" Command="{Binding SignOutCommand}"
+                                    HorizontalAlignment="Left" Padding="16,8" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Startup -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="STARTUP" Classes="CaptionUpper" />
+                    <Border Classes="Card">
+                        <StackPanel Spacing="8">
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <ToggleSwitch IsChecked="{Binding StartWithSystem}" OnContent="On" OffContent="Off" />
+                                <TextBlock Text="Start at login" Classes="BodyMedium" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Classes="BodySmall" Text="Admin status varies by platform" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Appearance -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="APPEARANCE" Classes="CaptionUpper" />
+                    <Border Classes="Card">
+                        <StackPanel Orientation="Horizontal" Spacing="12">
+                            <ToggleSwitch IsChecked="{Binding DarkMode}" OnContent="On" OffContent="Off" />
+                            <TextBlock Text="Dark mode" Classes="BodyMedium" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Logging -->
+                <StackPanel Spacing="8">
+                    <TextBlock Text="LOGGING" Classes="CaptionUpper" />
+                    <Border Classes="Card">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Error log path:" Classes="BodySmall" />
+                            <TextBox Text="{Binding LogPath}" Watermark="Leave blank for default" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Save -->
+                <Button Classes="Accent" Content="Save" Command="{Binding SaveCommand}"
+                        HorizontalAlignment="Left" Margin="0,8,0,0" />
+
+                <!-- About -->
+                <StackPanel Spacing="4" Margin="0,16,0,0">
+                    <TextBlock Text="EcoFlow Monitor" Classes="BodySmall" />
+                    <TextBlock Text="Avalonia UI &#x2022; Cross-platform" Classes="BodySmall" Foreground="{StaticResource TextMuted}" />
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

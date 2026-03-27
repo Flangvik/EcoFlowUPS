@@ -1,0 +1,71 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Display Large: Battery % hero -->
+    <Style Selector="TextBlock.DisplayLarge">
+        <Setter Property="FontSize" Value="48" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Display Medium: Status text -->
+    <Style Selector="TextBlock.DisplayMedium">
+        <Setter Property="FontSize" Value="32" />
+        <Setter Property="FontWeight" Value="Bold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Heading Large: Section headers -->
+    <Style Selector="TextBlock.HeadingLarge">
+        <Setter Property="FontSize" Value="20" />
+        <Setter Property="FontWeight" Value="DemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Heading Small: Card titles -->
+    <Style Selector="TextBlock.HeadingSmall">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="DemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Body Medium: Standard text -->
+    <Style Selector="TextBlock.BodyMedium">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Body Small: Secondary info -->
+    <Style Selector="TextBlock.BodySmall">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+    </Style>
+
+    <!-- Caption Upper: Section labels -->
+    <Style Selector="TextBlock.CaptionUpper">
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontWeight" Value="DemiBold" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+    </Style>
+
+    <!-- Mono Large: Stat values -->
+    <Style Selector="TextBlock.MonoLarge">
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontFamily" Value="JetBrains Mono, Cascadia Code, Consolas, monospace" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Mono Medium -->
+    <Style Selector="TextBlock.MonoMedium">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontFamily" Value="JetBrains Mono, Cascadia Code, Consolas, monospace" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Mono Small: Chart labels -->
+    <Style Selector="TextBlock.MonoSmall">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontFamily" Value="JetBrains Mono, Cascadia Code, Consolas, monospace" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+    </Style>
+</Styles>

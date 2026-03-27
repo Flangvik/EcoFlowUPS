@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:EcoFlowMonitor.ViewModels"
+             xmlns:controls="using:EcoFlowMonitor.Controls"
+             xmlns:converters="using:EcoFlowMonitor.Converters"
+             x:Class="EcoFlowMonitor.Views.RuleWizardView"
+             x:DataType="vm:RuleWizardViewModel">
+
+    <Border Background="#CC000000" HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <Border Background="{StaticResource SurfaceCard}"
+                BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="1"
+                CornerRadius="12" Width="520" MinHeight="400" MaxHeight="520"
+                HorizontalAlignment="Center" VerticalAlignment="Center"
+                Padding="32">
+            <Grid RowDefinitions="Auto,Auto,*,Auto">
+                <!-- Header -->
+                <StackPanel Grid.Row="0" Spacing="12" Margin="0,0,0,20">
+                    <TextBlock Text="{Binding StepTitle}" Classes="HeadingLarge" />
+                    <controls:StepIndicator TotalSteps="{Binding TotalSteps}"
+                                            CurrentStep="{Binding CurrentStep}"
+                                            Height="28" />
+                </StackPanel>
+
+                <!-- Step Content -->
+                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                    <Panel>
+                        <!-- Step 0: Name -->
+                        <StackPanel Spacing="12"
+                                    IsVisible="{Binding CurrentStep, Converter={x:Static converters:StepConverter.IsStep0}}">
+                            <TextBlock Text="RULE NAME" Classes="CaptionUpper" />
+                            <TextBox Text="{Binding RuleName}" />
+                            <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                                <ToggleSwitch IsChecked="{Binding RuleEnabled}" OnContent="On" OffContent="Off" />
+                                <TextBlock Text="Enable this rule" Classes="BodyMedium" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Step 1: Trigger -->
+                        <StackPanel Spacing="8"
+                                    IsVisible="{Binding CurrentStep, Converter={x:Static converters:StepConverter.IsStep1}}">
+                            <TextBlock Text="When should this rule fire?" Classes="BodySmall" Margin="0,0,0,8" />
+                            <UniformGrid Columns="2" Rows="2">
+                                <RadioButton GroupName="Trigger" Margin="4"
+                                             IsChecked="{Binding SelectedTrigger, Converter={x:Static converters:TriggerMatchConverter.PowerLost}}">
+                                    <Border Padding="12,10" CornerRadius="8" Background="{StaticResource BackgroundPrimary}"
+                                            BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="1">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="⚡ Power Lost" Classes="HeadingSmall" />
+                                            <TextBlock Text="Grid power cuts out" Classes="BodySmall" />
+                                        </StackPanel>
+                                    </Border>
+                                </RadioButton>
+                                <RadioButton GroupName="Trigger" Margin="4"
+                                             IsChecked="{Binding SelectedTrigger, Converter={x:Static converters:TriggerMatchConverter.PowerRestored}}">
+                                    <Border Padding="12,10" CornerRadius="8" Background="{StaticResource BackgroundPrimary}"
+                                            BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="1">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="↺ Power Restored" Classes="HeadingSmall" />
+                                            <TextBlock Text="Grid power returns" Classes="BodySmall" />
+                                        </StackPanel>
+                                    </Border>
+                                </RadioButton>
+                                <RadioButton GroupName="Trigger" Margin="4"
+                                             IsChecked="{Binding SelectedTrigger, Converter={x:Static converters:TriggerMatchConverter.BatteryBelow}}">
+                                    <Border Padding="12,10" CornerRadius="8" Background="{StaticResource BackgroundPrimary}"
+                                            BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="1">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="🔋 Battery Below" Classes="HeadingSmall" />
+                                            <TextBlock Text="Battery drops below %" Classes="BodySmall" />
+                                        </StackPanel>
+                                    </Border>
+                                </RadioButton>
+                                <RadioButton GroupName="Trigger" Margin="4"
+                                             IsChecked="{Binding SelectedTrigger, Converter={x:Static converters:TriggerMatchConverter.TimeBelow}}">
+                                    <Border Padding="12,10" CornerRadius="8" Background="{StaticResource BackgroundPrimary}"
+                                            BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="1">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="⏱ Time Below" Classes="HeadingSmall" />
+                                            <TextBlock Text="Runtime drops below min" Classes="BodySmall" />
+                                        </StackPanel>
+                                    </Border>
+                                </RadioButton>
+                            </UniformGrid>
+                        </StackPanel>
+
+                        <!-- Step 2: Threshold (conditional) -->
+                        <StackPanel Spacing="12"
+                                    IsVisible="{Binding CurrentStep, Converter={x:Static converters:StepConverter.IsStep2}}">
+                            <TextBlock Text="Set the threshold value:" Classes="BodyMedium" />
+                            <StackPanel Orientation="Horizontal" Spacing="12">
+                                <Slider Minimum="1" Maximum="100" Value="{Binding Threshold}"
+                                        Width="300" VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding Threshold}" Classes="MonoMedium" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </StackPanel>
+
+                        <!-- Last Step: Actions -->
+                        <StackPanel Spacing="12"
+                                    IsVisible="{Binding CurrentStep, Converter={x:Static converters:StepConverter.IsLastStep}}">
+                            <TextBlock Text="What should happen when the rule fires?" Classes="BodySmall" />
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Classes="Ghost" Content="+ Notification" Command="{Binding AddNotificationCommand}" />
+                                <Button Classes="Ghost" Content="+ Shutdown" Command="{Binding AddShutdownCommand}" />
+                                <Button Classes="Ghost" Content="+ Log" Command="{Binding AddLogActionCommand}" />
+                            </StackPanel>
+                            <ItemsControl ItemsSource="{Binding Actions}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Background="{StaticResource BackgroundPrimary}" CornerRadius="6"
+                                                Padding="12,8" Margin="0,2">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="{Binding Type}" Classes="BodyMedium" VerticalAlignment="Center" />
+                                                <Button Grid.Column="1" Classes="Ghost" Content="✕" Padding="4,2" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Panel>
+                </ScrollViewer>
+
+                <!-- Footer buttons -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
+                            Spacing="8" Margin="0,20,0,0">
+                    <Button Classes="Ghost" Content="Cancel" Command="{Binding CancelCommand}" />
+                    <Button Classes="Ghost" Content="&lt; Back" Command="{Binding BackCommand}"
+                            IsVisible="{Binding !IsFirstStep}" />
+                    <Button Classes="Accent" Content="{Binding NextButtonText}" Command="{Binding NextCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Border>
+</UserControl>

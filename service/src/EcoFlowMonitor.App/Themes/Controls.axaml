@@ -1,0 +1,72 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Card style for Border elements -->
+    <Style Selector="Border.Card">
+        <Setter Property="Background" Value="{StaticResource SurfaceCard}" />
+        <Setter Property="BorderBrush" Value="{StaticResource SurfaceCardBorder}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
+        <Setter Property="Padding" Value="{StaticResource CardPadding}" />
+    </Style>
+
+    <!-- Accent Button -->
+    <Style Selector="Button.Accent">
+        <Setter Property="Background" Value="{StaticResource AccentPrimary}" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="CornerRadius" Value="{StaticResource ButtonRadius}" />
+        <Setter Property="Padding" Value="24,12" />
+        <Setter Property="FontWeight" Value="DemiBold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <Style Selector="Button.Accent:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource AccentPrimaryHover}" />
+    </Style>
+
+    <!-- Ghost Button (flat) -->
+    <Style Selector="Button.Ghost">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Foreground" Value="{StaticResource TextSecondary}" />
+        <Setter Property="CornerRadius" Value="{StaticResource ButtonRadius}" />
+        <Setter Property="Padding" Value="16,8" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <Style Selector="Button.Ghost:pointerover /template/ ContentPresenter">
+        <Setter Property="Background" Value="{StaticResource SurfaceCardHover}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+
+    <!-- Danger Button -->
+    <Style Selector="Button.Danger">
+        <Setter Property="Background" Value="{StaticResource StatusPowerLost}" />
+        <Setter Property="Foreground" Value="#FFFFFF" />
+        <Setter Property="CornerRadius" Value="{StaticResource ButtonRadius}" />
+        <Setter Property="Padding" Value="24,12" />
+        <Setter Property="FontWeight" Value="DemiBold" />
+        <Setter Property="Cursor" Value="Hand" />
+    </Style>
+
+    <!-- TextBox dark theme -->
+    <Style Selector="TextBox">
+        <Setter Property="Background" Value="{StaticResource SurfaceInput}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+        <Setter Property="BorderBrush" Value="{StaticResource SurfaceInputBorder}" />
+        <Setter Property="CornerRadius" Value="{StaticResource InputRadius}" />
+        <Setter Property="Padding" Value="12,10" />
+        <Setter Property="FontSize" Value="14" />
+    </Style>
+
+    <Style Selector="TextBox:focus">
+        <Setter Property="BorderBrush" Value="{StaticResource AccentPrimary}" />
+    </Style>
+
+    <!-- Window base background -->
+    <Style Selector="Window">
+        <Setter Property="Background" Value="{StaticResource BackgroundPrimary}" />
+        <Setter Property="Foreground" Value="{StaticResource TextPrimary}" />
+    </Style>
+</Styles>

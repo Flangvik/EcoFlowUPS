@@ -1,0 +1,32 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:EcoFlowMonitor.ViewModels"
+        xmlns:views="using:EcoFlowMonitor.Views"
+        x:Class="EcoFlowMonitor.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="EcoFlow Monitor"
+        Width="1060" Height="780"
+        MinWidth="800" MinHeight="600"
+        Background="{StaticResource BackgroundPrimary}"
+        WindowStartupLocation="CenterScreen"
+        ExtendClientAreaToDecorationsHint="True"
+        ExtendClientAreaChromeHints="PreferSystemChrome"
+        ExtendClientAreaTitleBarHeightHint="-1">
+
+    <Window.DataTemplates>
+        <DataTemplate DataType="vm:LoginViewModel">
+            <views:LoginView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:DashboardViewModel">
+            <views:DashboardView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:SettingsViewModel">
+            <views:SettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="vm:BleScanViewModel">
+            <views:BleScanView />
+        </DataTemplate>
+    </Window.DataTemplates>
+
+    <ContentControl Content="{Binding CurrentPage}" />
+</Window>

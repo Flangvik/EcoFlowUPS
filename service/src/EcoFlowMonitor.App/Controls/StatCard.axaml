@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:EcoFlowMonitor.Controls"
+             x:Class="EcoFlowMonitor.Controls.StatCard"
+             x:DataType="local:StatCard"
+             Margin="4">
+    <Border Background="{StaticResource SurfaceCard}"
+            BorderBrush="{StaticResource SurfaceCardBorder}"
+            BorderThickness="1" CornerRadius="8" Padding="12,10">
+        <StackPanel Spacing="4">
+            <TextBlock Text="{Binding Label, RelativeSource={RelativeSource AncestorType=local:StatCard}}" Classes="CaptionUpper" />
+            <StackPanel Orientation="Horizontal" Spacing="2" VerticalAlignment="Center">
+                <TextBlock Text="{Binding DisplayValue, RelativeSource={RelativeSource AncestorType=local:StatCard}}"
+                           Foreground="{Binding ValueColor, RelativeSource={RelativeSource AncestorType=local:StatCard}}"
+                           Classes="MonoMedium" />
+                <TextBlock Text="{Binding Unit, RelativeSource={RelativeSource AncestorType=local:StatCard}}"
+                           IsVisible="{Binding HasUnit, RelativeSource={RelativeSource AncestorType=local:StatCard}}"
+                           Classes="BodySmall" VerticalAlignment="Bottom" Margin="2,0,0,1" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

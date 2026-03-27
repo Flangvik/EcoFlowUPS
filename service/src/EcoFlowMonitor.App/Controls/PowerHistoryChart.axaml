@@ -1,0 +1,8 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+             x:Class="EcoFlowMonitor.Controls.PowerHistoryChart">
+    <lvc:CartesianChart x:Name="Chart"
+                        AnimationsSpeed="00:00:00.200"
+                        EasingFunction="{x:Null}" />
+</UserControl>

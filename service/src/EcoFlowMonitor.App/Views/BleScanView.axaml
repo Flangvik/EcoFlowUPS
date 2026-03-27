@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:EcoFlowMonitor.ViewModels"
+             xmlns:models="using:EcoFlowMonitor.Models"
+             x:Class="EcoFlowMonitor.Views.BleScanView"
+             x:DataType="vm:BleScanViewModel"
+             Background="{StaticResource BackgroundPrimary}">
+
+    <Grid HorizontalAlignment="Center" VerticalAlignment="Center" Width="500">
+        <StackPanel Spacing="16">
+            <!-- Header -->
+            <StackPanel Orientation="Horizontal" Spacing="12">
+                <Button Classes="Ghost" Content="&#x2190; Back" Command="{Binding GoBackCommand}" />
+                <TextBlock Text="Bluetooth Scan" Classes="HeadingLarge" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Scan controls -->
+            <Border Classes="Card" Padding="24">
+                <StackPanel Spacing="16">
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <!-- Green dot when scanning, gray when idle -->
+                        <Ellipse Width="12" Height="12" VerticalAlignment="Center"
+                                 Fill="{StaticResource StatusIdle}" IsVisible="{Binding !IsScanning}" />
+                        <Ellipse Width="12" Height="12" VerticalAlignment="Center"
+                                 Fill="{StaticResource StatusCharging}" IsVisible="{Binding IsScanning}" />
+                        <TextBlock Text="{Binding StatusMessage}" Classes="BodyMedium" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Button Classes="Accent" HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center" Height="40"
+                            Command="{Binding ToggleScanCommand}"
+                            IsEnabled="{Binding !IsConnecting}">
+                        <Panel>
+                            <TextBlock Text="Start Scan" IsVisible="{Binding !IsScanning}" HorizontalAlignment="Center" />
+                            <TextBlock Text="Stop Scan" IsVisible="{Binding IsScanning}" HorizontalAlignment="Center" />
+                        </Panel>
+                    </Button>
+                </StackPanel>
+            </Border>
+
+            <!-- Device list -->
+            <ItemsControl ItemsSource="{Binding DiscoveredDevices}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="models:BleDeviceInfo">
+                        <Border Background="{StaticResource SurfaceCard}"
+                                BorderBrush="{StaticResource SurfaceCardBorder}"
+                                BorderThickness="1" CornerRadius="8"
+                                Padding="16,12" Margin="0,4">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="{Binding Name}" Classes="HeadingSmall" />
+                                    <StackPanel Orientation="Horizontal" Spacing="16">
+                                        <TextBlock Text="{Binding SerialNumber, StringFormat='SN: {0}'}" Classes="BodySmall" />
+                                        <TextBlock Text="{Binding Rssi, StringFormat='RSSI: {0} dBm'}" Classes="BodySmall" />
+                                        <TextBlock Text="{Binding EncryptionType, StringFormat='Enc: Type {0}'}" Classes="BodySmall" />
+                                    </StackPanel>
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="Accent" Content="Connect"
+                                        Padding="16,8" VerticalAlignment="Center"
+                                        Command="{Binding DataContext.ConnectDeviceCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </StackPanel>
+    </Grid>
+</UserControl>

@@ -1,0 +1,58 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Style>
+        <Style.Resources>
+            <!-- Background -->
+            <Color x:Key="BackgroundPrimaryColor">#0D0D0D</Color>
+            <Color x:Key="BackgroundSecondaryColor">#141414</Color>
+            <SolidColorBrush x:Key="BackgroundPrimary" Color="#0D0D0D" />
+            <SolidColorBrush x:Key="BackgroundSecondary" Color="#141414" />
+
+            <!-- Surface -->
+            <Color x:Key="SurfaceCardColor">#1A1A1A</Color>
+            <SolidColorBrush x:Key="SurfaceCard" Color="#1A1A1A" />
+            <SolidColorBrush x:Key="SurfaceCardHover" Color="#222222" />
+            <SolidColorBrush x:Key="SurfaceCardBorder" Color="#2A2A2A" />
+            <SolidColorBrush x:Key="SurfaceInput" Color="#1E1E1E" />
+            <SolidColorBrush x:Key="SurfaceInputBorder" Color="#333333" />
+
+            <!-- Text -->
+            <SolidColorBrush x:Key="TextPrimary" Color="#F0F0F0" />
+            <SolidColorBrush x:Key="TextSecondary" Color="#888888" />
+            <SolidColorBrush x:Key="TextMuted" Color="#555555" />
+
+            <!-- Accent -->
+            <Color x:Key="AccentPrimaryColor">#00D4AA</Color>
+            <SolidColorBrush x:Key="AccentPrimary" Color="#00D4AA" />
+            <SolidColorBrush x:Key="AccentPrimaryHover" Color="#00E8BC" />
+            <SolidColorBrush x:Key="AccentSecondary" Color="#0088FF" />
+
+            <!-- Status -->
+            <Color x:Key="StatusChargingColor">#00E676</Color>
+            <Color x:Key="StatusBatteryColor">#FFB300</Color>
+            <Color x:Key="StatusPowerLostColor">#FF5252</Color>
+            <Color x:Key="StatusIdleColor">#666666</Color>
+            <SolidColorBrush x:Key="StatusCharging" Color="#00E676" />
+            <SolidColorBrush x:Key="StatusBattery" Color="#FFB300" />
+            <SolidColorBrush x:Key="StatusPowerLost" Color="#FF5252" />
+            <SolidColorBrush x:Key="StatusIdle" Color="#666666" />
+
+            <!-- Chart -->
+            <SolidColorBrush x:Key="ChartIn" Color="#00E676" />
+            <SolidColorBrush x:Key="ChartOut" Color="#FF9100" />
+            <SolidColorBrush x:Key="ChartSolar" Color="#FFD600" />
+
+            <!-- Spacing -->
+            <Thickness x:Key="SpaceXS">4</Thickness>
+            <Thickness x:Key="SpaceSM">8</Thickness>
+            <Thickness x:Key="SpaceMD">16</Thickness>
+            <Thickness x:Key="SpaceLG">24</Thickness>
+            <Thickness x:Key="SpaceXL">32</Thickness>
+            <CornerRadius x:Key="CardRadius">12</CornerRadius>
+            <CornerRadius x:Key="InputRadius">8</CornerRadius>
+            <CornerRadius x:Key="ButtonRadius">8</CornerRadius>
+            <Thickness x:Key="CardPadding">20</Thickness>
+            <Thickness x:Key="CardBorder">1</Thickness>
+        </Style.Resources>
+    </Style>
+</Styles>
