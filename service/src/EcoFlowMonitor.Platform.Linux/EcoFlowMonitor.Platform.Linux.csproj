@@ -8,4 +8,7 @@
   <ItemGroup>
     <ProjectReference Include="..\EcoFlowMonitor.Core\EcoFlowMonitor.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Linux.Bluetooth" Version="5.67.1" />
+  </ItemGroup>
 </Project>
