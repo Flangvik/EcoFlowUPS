@@ -67,12 +67,9 @@ public partial class App : Application
         services.AddTransient<SettingsViewModel>();
         services.AddSingleton<BleScanner>();
         services.AddTransient<BleScanViewModel>();
-<<<<<<< HEAD
-        services.AddTransient<HistoryViewModel>();
-=======
         services.AddSingleton<IHistoryStore>(_ => new SqliteHistoryStore(dbPath));
         services.AddSingleton<IEventStore>(_ => new SqliteEventStore(dbPath));
->>>>>>> worktree-agent-a8e2824f
+        services.AddTransient<HistoryViewModel>();
 
         Services = services.BuildServiceProvider();
 
