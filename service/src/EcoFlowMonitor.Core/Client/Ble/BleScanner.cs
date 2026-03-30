@@ -1,5 +1,4 @@
 using System.Text;
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Platform;
 
@@ -25,7 +24,7 @@ public class BleScanner : IDisposable
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         _seen.Clear();
-        Logger.Log("BleScanner: starting scan...");
+        System.Diagnostics.Debug.WriteLine("BleScanner: starting scan...");
 
         try
         {
@@ -36,7 +35,7 @@ public class BleScanner : IDisposable
         }
         catch (Exception ex)
         {
-            Logger.Log($"BleScanner: scan error — {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"BleScanner: scan error — {ex.Message}");
         }
     }
 
@@ -81,12 +80,12 @@ public class BleScanner : IDisposable
                 Rssi = e.Rssi
             };
 
-            Logger.Log($"BleScanner: found {name} sn={serialNumber} enc={encryptionType} rssi={e.Rssi}");
+            System.Diagnostics.Debug.WriteLine($"BleScanner: found {name} sn={serialNumber} enc={encryptionType} rssi={e.Rssi}");
             DeviceDiscovered?.Invoke(this, info);
         }
         catch (Exception ex)
         {
-            Logger.Log($"BleScanner: parse error — {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"BleScanner: parse error — {ex.Message}");
         }
     }
 
@@ -94,7 +93,7 @@ public class BleScanner : IDisposable
     {
         _cts?.Cancel();
         _adapter.StopScan();
-        Logger.Log("BleScanner: scan stopped");
+        System.Diagnostics.Debug.WriteLine("BleScanner: scan stopped");
     }
 
     public void Dispose()

@@ -1,5 +1,4 @@
 using System.Buffers.Binary;
-using EcoFlowMonitor.Logging;
 
 namespace EcoFlowMonitor.Protocol;
 
@@ -54,7 +53,7 @@ public static class BlePacketParser
         ushort actualCrc = Crc.ComputeCrc16(frame[..(totalLen - 2)]);
         if (expectedCrc != actualCrc)
         {
-            Logger.Log($"BlePacketParser: frame CRC16 mismatch expected=0x{expectedCrc:X4} actual=0x{actualCrc:X4}");
+            System.Diagnostics.Debug.WriteLine($"BlePacketParser: frame CRC16 mismatch expected=0x{expectedCrc:X4} actual=0x{actualCrc:X4}");
             return null;
         }
 
@@ -79,7 +78,7 @@ public static class BlePacketParser
         byte actualCrc8 = Crc.ComputeCrc8(data[..4]);
         if (expectedCrc8 != actualCrc8)
         {
-            Logger.Log($"BlePacketParser: header CRC8 mismatch expected=0x{expectedCrc8:X2} actual=0x{actualCrc8:X2}");
+            System.Diagnostics.Debug.WriteLine($"BlePacketParser: header CRC8 mismatch expected=0x{expectedCrc8:X2} actual=0x{actualCrc8:X2}");
             return null;
         }
 
@@ -117,7 +116,7 @@ public static class BlePacketParser
             ushort actualCrc16 = Crc.ComputeCrc16(data[..(totalPacketLen - 2)]);
             if (expectedCrc16 != actualCrc16)
             {
-                Logger.Log($"BlePacketParser: packet CRC16 mismatch");
+                System.Diagnostics.Debug.WriteLine($"BlePacketParser: packet CRC16 mismatch");
                 // Don't return null — some packets may have different CRC behavior
             }
         }

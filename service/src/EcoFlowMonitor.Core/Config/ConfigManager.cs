@@ -26,8 +26,9 @@ public static class ConfigManager
             var json = File.ReadAllText(ConfigPath);
             return JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig();
         }
-        catch
+        catch (Exception ex)
         {
+            System.Diagnostics.Debug.WriteLine($"ConfigManager.Load failed, using defaults: {ex.Message}");
             return new AppConfig();
         }
     }

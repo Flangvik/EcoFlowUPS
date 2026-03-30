@@ -1,4 +1,3 @@
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Models;
 using Google.Protobuf;
 
@@ -71,12 +70,12 @@ public static class BleProtoMapper
         }
         catch (InvalidProtocolBufferException ex)
         {
-            Logger.Log($"BleProtoMapper: protobuf error — {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"BleProtoMapper: protobuf error — {ex.Message}");
             return false;
         }
         catch (Exception ex)
         {
-            Logger.Log($"BleProtoMapper: error — {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"BleProtoMapper: error — {ex.Message}");
             return false;
         }
     }

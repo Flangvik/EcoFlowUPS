@@ -1,8 +1,8 @@
 using System.Text;
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Protocol;
 using EcoFlowMonitor.State;
+using Microsoft.Extensions.Logging;
 using MQTTnet;
 using MQTTnet.Client;
 using MQTTnet.Diagnostics;
@@ -10,15 +10,24 @@ using MQTTnet.Formatter;
 
 namespace EcoFlowMonitor.Client;
 
-// Pipes MQTTnet internal trace to our Logger so we can see every packet
+// Pipes MQTTnet internal trace to ILogger so we can see every packet
 internal sealed class MqttNetLogger : IMqttNetLogger
 {
+    private readonly ILogger _logger;
+
+    public MqttNetLogger(ILogger logger)
+    {
+        _logger = logger;
+    }
+
     public bool IsEnabled => true;
+
     public void Publish(MqttNetLogLevel level, string source, string message, object[] parameters, Exception exception)
     {
         if (level < MqttNetLogLevel.Warning) return;
         var text = parameters?.Length > 0 ? string.Format(message, parameters) : message;
-        Logger.Log($"[MQTT/{level}] {source}: {text}{(exception != null ? " — " + exception.Message : "")}");
+        var logLevel = level < MqttNetLogLevel.Error ? LogLevel.Warning : LogLevel.Error;
+        _logger.Log(logLevel, exception, "{Source}: {Message}", source, text);
     }
 }
 
@@ -40,6 +49,7 @@ public class MqttMonitor : IDeviceMonitor
     private readonly DeviceState _state;
     private readonly MqttCredentials _creds;
     private readonly string _userId;
+    private readonly ILogger<MqttMonitor> _logger;
     private string? _topic;
     private string? _wakeTopic;
     private MqttClientOptions? _options;
@@ -52,12 +62,13 @@ public class MqttMonitor : IDeviceMonitor
     /// </summary>
     public event EventHandler<StateChangedEventArgs>? StateChanged;
 
-    public MqttMonitor(DeviceConfig config, DeviceState state, MqttCredentials creds, string userId)
+    public MqttMonitor(DeviceConfig config, DeviceState state, MqttCredentials creds, string userId, ILogger<MqttMonitor> logger)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _state  = state  ?? throw new ArgumentNullException(nameof(state));
         _creds  = creds  ?? throw new ArgumentNullException(nameof(creds));
         _userId = userId ?? throw new ArgumentNullException(nameof(userId));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     // ------------------------------------------------------------------
@@ -73,7 +84,7 @@ public class MqttMonitor : IDeviceMonitor
 
         // Match Python POC: ANDROID_{UUID-UPPERCASE-WITH-DASHES}_{userId}
         string clientId = $"ANDROID_{Guid.NewGuid().ToString().ToUpper()}_{_userId}";
-        Logger.Log($"MqttMonitor: StartAsync clientId={clientId} topic={_topic}");
+        _logger.LogInformation("StartAsync clientId={ClientId} topic={Topic}", clientId, _topic);
 
         _options = new MqttClientOptionsBuilder()
             .WithClientId(clientId)
@@ -88,7 +99,7 @@ public class MqttMonitor : IDeviceMonitor
             .WithCleanSession()
             .Build();
 
-        var factory = new MqttFactory(new MqttNetLogger());
+        var factory = new MqttFactory(new MqttNetLogger(_logger));
         _client = factory.CreateMqttClient();
 
         _client.ApplicationMessageReceivedAsync += OnMessageReceivedAsync;
@@ -107,15 +118,16 @@ public class MqttMonitor : IDeviceMonitor
             try
             {
                 var cred = _options!.Credentials;
-                Logger.Log($"MqttMonitor: connecting to {_options.ChannelOptions} user={cred?.GetUserName(_options)} keepAlive={_options.KeepAlivePeriod.TotalSeconds}s");
+                _logger.LogInformation("Connecting to {ChannelOptions} user={User} keepAlive={KeepAlive}s",
+                    _options.ChannelOptions, cred?.GetUserName(_options), _options.KeepAlivePeriod.TotalSeconds);
                 var result = await _client!.ConnectAsync(_options, ct).ConfigureAwait(false);
-                Logger.Log($"MqttMonitor: ConnectAsync result={result.ResultCode}");
+                _logger.LogInformation("ConnectAsync result={ResultCode}", result.ResultCode);
                 return; // success — DisconnectedAsync drives reconnect
             }
             catch (OperationCanceledException) { return; }
             catch (Exception ex)
             {
-                Logger.Log($"MqttMonitor: connect failed — {ex.Message}, retry in 5s");
+                _logger.LogWarning(ex, "Connect failed, retry in 5s");
                 try { await Task.Delay(5000, ct).ConfigureAwait(false); }
                 catch (OperationCanceledException) { return; }
             }
@@ -140,7 +152,7 @@ public class MqttMonitor : IDeviceMonitor
     // ------------------------------------------------------------------
     private async Task OnConnectedAsync(MqttClientConnectedEventArgs e)
     {
-        Logger.Log($"MqttMonitor: connected sn={_state.SerialNumber}, subscribing to {_topic}");
+        _logger.LogInformation("Connected sn={SerialNumber}, subscribing to {Topic}", _state.SerialNumber, _topic);
         _state.IsConnected = true;
         StateChanged?.Invoke(this, new StateChangedEventArgs(_state, _state.Power.Status));
 
@@ -152,7 +164,7 @@ public class MqttMonitor : IDeviceMonitor
 
             var subResult = await _client!.SubscribeAsync(subOptions).ConfigureAwait(false);
             foreach (var item in subResult.Items)
-                Logger.Log($"MqttMonitor: SUBACK topic={item.TopicFilter.Topic} resultCode={item.ResultCode}");
+                _logger.LogInformation("SUBACK topic={Topic} resultCode={ResultCode}", item.TopicFilter.Topic, item.ResultCode);
 
             // Publish wake command — triggers device to push its full current state.
             // Without this the broker stays silent until the EcoFlow mobile app opens.
@@ -165,23 +177,23 @@ public class MqttMonitor : IDeviceMonitor
                 .WithPayload(wakePayload)
                 .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtMostOnce)
                 .Build()).ConfigureAwait(false);
-            Logger.Log($"MqttMonitor: wake command published to {_wakeTopic}");
+            _logger.LogInformation("Wake command published to {WakeTopic}", _wakeTopic);
         }
         catch (Exception ex)
         {
-            Logger.Log($"MqttMonitor: subscribe/wake failed — {ex.Message}");
+            _logger.LogWarning(ex, "Subscribe/wake failed");
         }
     }
 
     private async Task OnDisconnectedAsync(MqttClientDisconnectedEventArgs e)
     {
-        Logger.Log($"MqttMonitor: disconnected sn={_state.SerialNumber} reason={e.Reason}");
+        _logger.LogInformation("Disconnected sn={SerialNumber} reason={Reason}", _state.SerialNumber, e.Reason);
         _state.IsConnected = false;
         StateChanged?.Invoke(this, new StateChangedEventArgs(_state, _state.Power.Status));
 
         if (_cts != null && !_cts.IsCancellationRequested)
         {
-            Logger.Log($"MqttMonitor: reconnecting in 5s...");
+            _logger.LogInformation("Reconnecting in 5s...");
             try { await Task.Delay(5000, _cts.Token).ConfigureAwait(false); }
             catch (OperationCanceledException) { return; }
             await ConnectLoopAsync(_cts.Token).ConfigureAwait(false);
@@ -196,7 +208,8 @@ public class MqttMonitor : IDeviceMonitor
         try
         {
             var segment = e.ApplicationMessage.PayloadSegment;
-            Logger.Log($"MqttMonitor: message received sn={_state.SerialNumber} bytes={segment.Count} topic={e.ApplicationMessage.Topic}");
+            _logger.LogDebug("Message received sn={SerialNumber} bytes={Bytes} topic={Topic}",
+                _state.SerialNumber, segment.Count, e.ApplicationMessage.Topic);
             if (segment.Count == 0)
                 return Task.CompletedTask;
 
@@ -213,29 +226,28 @@ public class MqttMonitor : IDeviceMonitor
             }
 
             bool dispatched = ProtobufDecoder.Dispatch(raw, out BmsData? bms, out DisplayData? display, out EmsData? ems);
-            Logger.Log($"MqttMonitor: dispatch result={dispatched} bms={bms != null} display={display != null} ems={ems != null}");
+            _logger.LogDebug("Dispatch result={Dispatched} bms={HasBms} display={HasDisplay} ems={HasEms}",
+                dispatched, bms != null, display != null, ems != null);
             if (dispatched)
             {
-                PowerStatus previousPower = _state.Power.Status;
-
-                if (bms != null)
-                    _state.Bms = bms;
-
-                if (display != null)
-                    _state.Display = display;
-
-                if (ems != null)
-                    _state.Ems = ems;
-
-                _state.Power       = PowerStateMachine.Update(_state.Power, _state);
-                _state.LastUpdated = DateTime.Now;
-
+                // Snapshot previous power BEFORE lock so we can pass it to StateChangedEventArgs
+                var previousPower = _state.Power.Status;
+                lock (_state.SyncLock)
+                {
+                    if (bms != null) _state.Bms = bms;
+                    if (display != null) _state.Display = display;
+                    if (ems != null) _state.Ems = ems;
+                    _state.Power = PowerStateMachine.Update(_state.Power, _state);
+                    _state.LastUpdated = DateTime.Now;
+                    _state.LastDataReceived = DateTime.Now;
+                }
+                // StateChanged raised OUTSIDE the lock -- prevents deadlock if handler reads _state
                 StateChanged?.Invoke(this, new StateChangedEventArgs(_state, previousPower));
             }
         }
-        catch
+        catch (Exception ex)
         {
-            // Swallow decode errors — malformed packets should not crash the monitor
+            _logger.LogWarning(ex, "Failed to decode MQTT message (payload may be malformed or protocol changed)");
         }
 
         return Task.CompletedTask;

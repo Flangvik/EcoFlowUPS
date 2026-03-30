@@ -400,8 +400,10 @@ public static class ProtobufDecoder
 
             return false;
         }
-        catch
+        catch (Exception ex)
         {
+            // Log decode failure -- do not crash; data for this packet is lost
+            System.Diagnostics.Debug.WriteLine($"ProtobufDecoder.Dispatch failed: {ex.Message}");
             return false;
         }
     }

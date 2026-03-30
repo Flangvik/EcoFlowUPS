@@ -1,4 +1,3 @@
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Models;
 
 namespace EcoFlowMonitor.Protocol;
@@ -34,7 +33,7 @@ public static class BleDispatcher
             // Time sync request from device (cmdSet=0x01, cmdId=0x52)
             if (packet.CmdSet == 0x01 && packet.CmdId == 0x52)
             {
-                Logger.Log("BleDispatcher: device requested time sync");
+                System.Diagnostics.Debug.WriteLine("BleDispatcher: device requested time sync");
                 return false;
             }
 
@@ -55,12 +54,12 @@ public static class BleDispatcher
                 return ems != null;
             }
 
-            Logger.Log($"BleDispatcher: unhandled src=0x{packet.Src:X2} cs=0x{packet.CmdSet:X2} ci=0x{packet.CmdId:X2} len={packet.Payload.Length}");
+            System.Diagnostics.Debug.WriteLine($"BleDispatcher: unhandled src=0x{packet.Src:X2} cs=0x{packet.CmdSet:X2} ci=0x{packet.CmdId:X2} len={packet.Payload.Length}");
             return false;
         }
         catch (Exception ex)
         {
-            Logger.Log($"BleDispatcher: error — {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"BleDispatcher: error — {ex.Message}");
             return false;
         }
     }

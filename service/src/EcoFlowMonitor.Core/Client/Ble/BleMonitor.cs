@@ -1,9 +1,9 @@
 using System.Security.Cryptography;
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Platform;
 using EcoFlowMonitor.Protocol;
 using EcoFlowMonitor.State;
+using Microsoft.Extensions.Logging;
 using Org.BouncyCastle.Asn1.X9;
 using Org.BouncyCastle.Crypto;
 using Org.BouncyCastle.Crypto.EC;
@@ -20,6 +20,8 @@ public class BleMonitor : IDeviceMonitor
     private readonly DeviceState _state;
     private readonly string _userId;
     private readonly IBleAdapter _adapter;
+    private readonly ILogger<BleMonitor> _logger;
+    private readonly ILoggerFactory _loggerFactory;
 
     private BleTransport? _transport;
     private IBleCryptoSession? _crypto;
@@ -29,18 +31,21 @@ public class BleMonitor : IDeviceMonitor
 
     public event EventHandler<StateChangedEventArgs>? StateChanged;
 
-    public BleMonitor(DeviceConfig config, DeviceState state, string userId, IBleAdapter adapter)
+    public BleMonitor(DeviceConfig config, DeviceState state, string userId, IBleAdapter adapter, ILogger<BleMonitor> logger, ILoggerFactory loggerFactory)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
         _state = state ?? throw new ArgumentNullException(nameof(state));
         _userId = userId ?? throw new ArgumentNullException(nameof(userId));
         _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
     }
 
     public async Task StartAsync(CancellationToken ct = default)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-        Logger.Log($"BleMonitor: starting for {_config.DisplayName} sn={_config.SerialNumber} enc={_config.BleEncryptionType}");
+        _logger.LogInformation("Starting for {DisplayName} sn={SerialNumber} enc={EncryptionType}",
+            _config.DisplayName, _config.SerialNumber, _config.BleEncryptionType);
         await ConnectLoopAsync(_cts.Token);
     }
 
@@ -56,8 +61,13 @@ public class BleMonitor : IDeviceMonitor
             catch (OperationCanceledException) { return; }
             catch (Exception ex)
             {
-                Logger.Log($"BleMonitor: connect failed — {ex.Message}, retry in 5s");
-                _state.IsConnected = false;
+                _logger.LogWarning(ex, "Connect failed, retry in 5s");
+                lock (_state.SyncLock)
+                {
+                    _state.IsConnected = false;
+                    _state.ConnectionStatus = ConnectionStatus.Retrying;
+                }
+                // StateChanged raised OUTSIDE the lock -- prevents deadlock if handler reads _state
                 StateChanged?.Invoke(this, new StateChangedEventArgs(_state, _state.Power.Status));
                 try { await Task.Delay(5000, ct); }
                 catch (OperationCanceledException) { return; }
@@ -79,17 +89,17 @@ public class BleMonitor : IDeviceMonitor
 
         // Quick scan to ensure CoreBluetooth has discovered the peripheral
         // (the BLE address cache doesn't persist across app restarts on macOS)
-        Logger.Log($"BleMonitor: scanning for device {deviceInfo.Address}...");
+        _logger.LogInformation("Scanning for device {Address}...", deviceInfo.Address);
         using var scanCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         scanCts.CancelAfter(TimeSpan.FromSeconds(8));
         try { await _adapter.StartScanAsync(scanCts.Token); }
         catch (OperationCanceledException) { } // scan timeout is expected
         _adapter.StopScan();
-        Logger.Log("BleMonitor: scan complete, connecting...");
+        _logger.LogInformation("Scan complete, connecting...");
 
-        // Start with no encryption — handshake frames are unencrypted
+        // Start with no encryption -- handshake frames are unencrypted
         _crypto = new BleCryptoModern();
-        _transport = new BleTransport(deviceInfo, _adapter, crypto: null);
+        _transport = new BleTransport(deviceInfo, _adapter, _loggerFactory.CreateLogger<BleTransport>(), crypto: null);
         _transport.PacketReceived += OnPacketReceived;
         _transport.RawFrameReceived += OnRawFrame;
 
@@ -105,7 +115,7 @@ public class BleMonitor : IDeviceMonitor
 
         // Authentication
         await SendAuthAsync(sn, ct);
-        Logger.Log("BleMonitor: authenticated, receiving heartbeat data");
+        _logger.LogInformation("Authenticated, receiving heartbeat data");
     }
 
     private void SetType1Encryption(string sn)
@@ -114,7 +124,7 @@ public class BleMonitor : IDeviceMonitor
         // Swap the transport's crypto by reconnecting with encryption
         // Actually, for Type 1 the transport needs to decrypt incoming frames.
         // We set the crypto and the transport will use it for subsequent frames.
-        Logger.Log("BleMonitor: Type 1 encryption established");
+        _logger.LogInformation("Type 1 encryption established");
     }
 
     // ----------------------------------------------------------------
@@ -122,7 +132,7 @@ public class BleMonitor : IDeviceMonitor
     // ----------------------------------------------------------------
     private async Task PerformEcdhHandshakeAsync(string sn, CancellationToken ct)
     {
-        Logger.Log("BleMonitor: ECDH key exchange starting (SECP160r1)...");
+        _logger.LogInformation("ECDH key exchange starting (SECP160r1)...");
         var modern = (BleCryptoModern)_crypto!;
 
         // Step 1: Generate SECP160r1 keypair
@@ -144,8 +154,7 @@ public class BleMonitor : IDeviceMonitor
         // Brief delay to let notifications settle after subscribe
         await Task.Delay(500, ct);
 
-        Logger.Log($"BleMonitor: sending public key ({pubKeyRaw.Length} bytes)");
-        Logger.Log($"BleMonitor: pubkey hex: {Convert.ToHexString(pubKeyRaw)}");
+        _logger.LogInformation("Sending public key ({Length} bytes): {PubKeyHex}", pubKeyRaw.Length, Convert.ToHexString(pubKeyRaw));
 
         // Step 2: Send public key in unencrypted frame
         var pubKeyPayload = new byte[2 + pubKeyRaw.Length];
@@ -154,7 +163,7 @@ public class BleMonitor : IDeviceMonitor
         Array.Copy(pubKeyRaw, 0, pubKeyPayload, 2, pubKeyRaw.Length);
 
         var pubKeyFrame = BlePacketBuilder.WrapInFrame(pubKeyPayload, 0x00); // unencrypted command
-        Logger.Log($"BleMonitor: sending frame ({pubKeyFrame.Length} bytes): {Convert.ToHexString(pubKeyFrame)}");
+        _logger.LogDebug("Sending frame ({Length} bytes): {FrameHex}", pubKeyFrame.Length, Convert.ToHexString(pubKeyFrame));
         _handshakeTcs = new TaskCompletionSource<byte[]>();
         await _transport!.SendAsync(pubKeyFrame, ct);
 
@@ -181,13 +190,13 @@ public class BleMonitor : IDeviceMonitor
         // Step 4: Compute shared secret
         var sharedPoint = devicePubParams.Q.Multiply(privateKey.D).Normalize();
         var sharedSecret = sharedPoint.AffineXCoord.GetEncoded();
-        Logger.Log($"BleMonitor: ECDH shared secret computed ({sharedSecret.Length} bytes)");
+        _logger.LogInformation("ECDH shared secret computed ({Length} bytes)", sharedSecret.Length);
 
         // Step 5: Set initial encryption (IV = MD5(shared_secret), key = shared_secret[:16])
         modern.SetInitialKey(sharedSecret);
 
         // Step 6: Request session key
-        Logger.Log("BleMonitor: requesting session key...");
+        _logger.LogInformation("Requesting session key...");
         var sessionKeyReqPayload = new byte[] { 0x02 };
         var sessionKeyFrame = BlePacketBuilder.WrapInFrame(sessionKeyReqPayload, 0x00);
         _handshakeTcs = new TaskCompletionSource<byte[]>();
@@ -217,7 +226,7 @@ public class BleMonitor : IDeviceMonitor
 
         // Step 10: Update transport with the final session encryption
         _transport!.SetCrypto(modern);
-        Logger.Log("BleMonitor: ECDH handshake complete, session key established, transport crypto updated");
+        _logger.LogInformation("ECDH handshake complete, session key established, transport crypto updated");
     }
 
     private static int GetEcdhTypeSize(byte ecdhType)
@@ -262,7 +271,7 @@ public class BleMonitor : IDeviceMonitor
             : BlePacketBuilder.WrapInFrame(authPacket, 0x00);
         await _transport.SendAsync(authFrame, ct);
 
-        Logger.Log("BleMonitor: auth packet sent, waiting for response...");
+        _logger.LogInformation("Auth packet sent, waiting for response...");
 
         using var authCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         authCts.CancelAfter(TimeSpan.FromSeconds(10));
@@ -273,7 +282,7 @@ public class BleMonitor : IDeviceMonitor
         }
         catch (OperationCanceledException) when (!ct.IsCancellationRequested)
         {
-            Logger.Log("BleMonitor: auth timeout — proceeding (some devices skip explicit response)");
+            _logger.LogWarning("Auth timeout -- proceeding (some devices skip explicit response)");
         }
     }
 
@@ -287,7 +296,7 @@ public class BleMonitor : IDeviceMonitor
             if (packet.CmdSet == 0x35 && packet.CmdId == 0x86)
             {
                 bool success = packet.Payload.Length == 0 || packet.Payload[0] == 0x00;
-                Logger.Log($"BleMonitor: auth response, success={success}");
+                _logger.LogInformation("Auth response, success={Success}", success);
                 _authTcs?.TrySetResult(success);
                 return;
             }
@@ -295,27 +304,35 @@ public class BleMonitor : IDeviceMonitor
             var dispatched = BleDispatcher.Dispatch(packet, out var bms, out var display, out var ems);
             if (dispatched)
             {
+                // Snapshot previous power BEFORE lock so we can pass it to StateChangedEventArgs
                 var previousPower = _state.Power.Status;
-                if (bms != null) MergeBms(_state, bms);
-                if (display != null) MergeDisplay(_state, display);
-                if (ems != null) MergeEms(_state, ems);
-                _state.Power = PowerStateMachine.Update(_state.Power, _state);
-                _state.LastUpdated = DateTime.Now;
-                Logger.Log($"BleMonitor: data updated — batt={_state.Bms?.BatteryPct}% in={_state.Display?.TotalInW}W out={_state.Display?.TotalOutW}W");
+                lock (_state.SyncLock)
+                {
+                    if (bms != null) MergeBms(_state, bms);
+                    if (display != null) MergeDisplay(_state, display);
+                    if (ems != null) MergeEms(_state, ems);
+                    _state.Power = PowerStateMachine.Update(_state.Power, _state);
+                    _state.LastUpdated = DateTime.Now;
+                    _state.LastDataReceived = DateTime.Now;
+                }
+                _logger.LogDebug("Data updated — batt={BattPct}% in={InW}W out={OutW}W",
+                    _state.Bms?.BatteryPct, _state.Display?.TotalInW, _state.Display?.TotalOutW);
+                // StateChanged raised OUTSIDE the lock -- prevents deadlock if handler reads _state
                 StateChanged?.Invoke(this, new StateChangedEventArgs(_state, previousPower));
             }
             else
             {
-                Logger.Log($"BleMonitor: dispatch returned false for src=0x{packet.Src:X2} cs=0x{packet.CmdSet:X2} ci=0x{packet.CmdId:X2}");
+                _logger.LogDebug("Dispatch returned false for src=0x{Src:X2} cs=0x{CmdSet:X2} ci=0x{CmdId:X2}",
+                    packet.Src, packet.CmdSet, packet.CmdId);
             }
         }
         catch (Exception ex)
         {
-            Logger.Log($"BleMonitor: packet error — {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
+            _logger.LogError(ex, "Packet error — {ExType}: {Message}", ex.GetType().Name, ex.Message);
         }
     }
 
-    // ── Merge helpers: only overwrite fields that have actual data ──
+    // -- Merge helpers: only overwrite fields that have actual data --
 
     private static void MergeBms(DeviceState state, BmsData src)
     {
