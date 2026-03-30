@@ -19,6 +19,7 @@
     <PackageReference Include="Serilog.Extensions.Hosting" Version="10.0.0" />
     <PackageReference Include="Stateless" Version="5.20.1" />
     <PackageReference Include="Polly" Version="8.6.6" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.5" />
   </ItemGroup>
   <ItemGroup>
     <Protobuf Include="Proto/pd335_sys.proto" GrpcServices="None" />
