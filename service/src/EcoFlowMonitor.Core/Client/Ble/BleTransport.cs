@@ -1,7 +1,7 @@
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Platform;
 using EcoFlowMonitor.Protocol;
+using Microsoft.Extensions.Logging;
 
 namespace EcoFlowMonitor.Client.Ble;
 
@@ -17,6 +17,7 @@ public class BleTransport : IDisposable
     private readonly BleDeviceInfo _deviceInfo;
     private IBleCryptoSession? _crypto;
     private readonly IBleAdapter _adapter;
+    private readonly ILogger<BleTransport> _logger;
 
     private IBleGattConnection? _connection;
     private Guid _activeServiceUuid;
@@ -33,19 +34,20 @@ public class BleTransport : IDisposable
     public void SetCrypto(IBleCryptoSession crypto)
     {
         _crypto = crypto;
-        Logger.Log($"BleTransport: crypto updated to {crypto.GetType().Name}");
+        _logger.LogInformation("Crypto updated to {CryptoType}", crypto.GetType().Name);
     }
 
-    public BleTransport(BleDeviceInfo deviceInfo, IBleAdapter adapter, IBleCryptoSession? crypto = null)
+    public BleTransport(BleDeviceInfo deviceInfo, IBleAdapter adapter, ILogger<BleTransport> logger, IBleCryptoSession? crypto = null)
     {
         _deviceInfo = deviceInfo;
         _adapter = adapter;
+        _logger = logger;
         _crypto = crypto;
     }
 
     public async Task ConnectAsync(CancellationToken ct = default)
     {
-        Logger.Log($"BleTransport: connecting to {_deviceInfo.Name} ({_deviceInfo.Address})...");
+        _logger.LogInformation("Connecting to {DeviceName} ({DeviceAddress})...", _deviceInfo.Name, _deviceInfo.Address);
 
         _connection = _adapter.CreateConnection();
         _connection.NotificationReceived += OnNotification;
@@ -56,23 +58,25 @@ public class BleTransport : IDisposable
             await _connection.SubscribeNotifyAsync(RfcommServiceUuid, RfcommNotifyUuid, ct);
             _activeServiceUuid = RfcommServiceUuid;
             _activeWriteUuid = RfcommWriteUuid;
-            Logger.Log("BleTransport: using RFCOMM characteristics");
+            _logger.LogInformation("Using RFCOMM characteristics");
         }
         catch
         {
             await _connection.SubscribeNotifyAsync(NordicServiceUuid, NordicNotifyUuid, ct);
             _activeServiceUuid = NordicServiceUuid;
             _activeWriteUuid = NordicWriteUuid;
-            Logger.Log("BleTransport: using Nordic UART characteristics");
+            _logger.LogInformation("Using Nordic UART characteristics");
         }
 
-        Logger.Log($"BleTransport: connected to {_deviceInfo.Name}");
+        _logger.LogInformation("Connected to {DeviceName}", _deviceInfo.Name);
     }
 
     private void OnNotification(object? sender, byte[] data)
     {
         if (data.Length == 0) return;
-        Logger.Log($"BleTransport: raw notification {data.Length} bytes: {Convert.ToHexString(data[..Math.Min(data.Length, 32)])}...");
+        // Frame-level hex dump guarded at LogDebug — invisible at default Information level (UX-03)
+        _logger.LogDebug("Raw notification {Bytes} bytes: {Hex}...",
+            data.Length, Convert.ToHexString(data[..Math.Min(data.Length, 32)]));
         try
         {
             lock (_bufferLock)
@@ -83,7 +87,7 @@ public class BleTransport : IDisposable
         }
         catch (Exception ex)
         {
-            Logger.Log($"BleTransport: notification error — {ex.Message}");
+            _logger.LogWarning(ex, "Notification error");
         }
     }
 
@@ -99,13 +103,15 @@ public class BleTransport : IDisposable
             if (result == null)
             {
                 if (remaining.Length > 6)
-                    Logger.Log($"BleTransport: TryParseFrame returned null, buffer={remaining.Length}b prefix={Convert.ToHexString(remaining[..Math.Min(8, remaining.Length)])}");
+                    _logger.LogDebug("TryParseFrame returned null, buffer={BufferBytes}b prefix={Prefix}",
+                        remaining.Length, Convert.ToHexString(remaining[..Math.Min(8, remaining.Length)]));
                 break;
             }
 
             var (frameType, encPayload, consumed) = result.Value;
             offset += consumed;
-            Logger.Log($"BleTransport: frame parsed ft={frameType} payload={encPayload.Length}b consumed={consumed}");
+            _logger.LogDebug("Frame parsed ft={FrameType} payload={PayloadBytes}b consumed={Consumed}",
+                frameType, encPayload.Length, consumed);
 
             byte[] decrypted;
             if (_crypto != null && frameType != 0x00)
@@ -113,7 +119,7 @@ public class BleTransport : IDisposable
                 try { decrypted = _crypto.Decrypt(encPayload); }
                 catch (Exception ex)
                 {
-                    Logger.Log($"BleTransport: decrypt failed — {ex.GetType().Name}: {ex.Message}");
+                    _logger.LogWarning(ex, "Decrypt failed");
                     continue;
                 }
             }
@@ -122,18 +128,20 @@ public class BleTransport : IDisposable
                 decrypted = encPayload;
             }
 
-            Logger.Log($"BleTransport: decrypted {decrypted.Length}b, first={Convert.ToHexString(decrypted[..Math.Min(4, decrypted.Length)])}");
+            _logger.LogDebug("Decrypted {DecryptedBytes}b, first={FirstBytes}",
+                decrypted.Length, Convert.ToHexString(decrypted[..Math.Min(4, decrypted.Length)]));
             RawFrameReceived?.Invoke(this, decrypted);
 
             var packet = BlePacketParser.ParsePacket(decrypted);
             if (packet != null)
             {
-                Logger.Log($"BleTransport: packet src=0x{packet.Src:X2} cs=0x{packet.CmdSet:X2} ci=0x{packet.CmdId:X2} payload={packet.Payload.Length}b");
+                _logger.LogDebug("Packet src=0x{Src:X2} cs=0x{CmdSet:X2} ci=0x{CmdId:X2} payload={PayloadBytes}b",
+                    packet.Src, packet.CmdSet, packet.CmdId, packet.Payload.Length);
                 PacketReceived?.Invoke(this, packet);
             }
             else
             {
-                Logger.Log($"BleTransport: ParsePacket returned null for {decrypted.Length}b");
+                _logger.LogDebug("ParsePacket returned null for {DecryptedBytes}b", decrypted.Length);
             }
         }
 
@@ -159,7 +167,7 @@ public class BleTransport : IDisposable
             _connection.NotificationReceived -= OnNotification;
             await _connection.DisconnectAsync();
         }
-        Logger.Log("BleTransport: disconnected");
+        _logger.LogInformation("Disconnected");
     }
 
     public void Dispose()

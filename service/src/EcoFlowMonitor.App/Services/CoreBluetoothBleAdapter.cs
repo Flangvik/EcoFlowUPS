@@ -1,8 +1,8 @@
 // This file only compiles under net10.0-macos (excluded via Compile Remove in csproj for other TFMs).
 using CoreBluetooth;
 using Foundation;
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Platform;
+using Microsoft.Extensions.Logging;
 
 namespace EcoFlowMonitor.Services;
 
@@ -14,6 +14,7 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
 {
     private readonly CBCentralManager _centralManager;
     private readonly CentralManagerDelegate _centralDelegate;
+    private readonly ILogger<CoreBluetoothBleAdapter> _logger;
 
     /// <summary>
     /// Cache of discovered peripherals keyed by UUID string.
@@ -25,21 +26,22 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
 
     public event EventHandler<BleAdvertisement>? AdvertisementReceived;
 
-    public CoreBluetoothBleAdapter()
+    public CoreBluetoothBleAdapter(ILogger<CoreBluetoothBleAdapter> logger)
     {
+        _logger = logger;
         _centralDelegate = new CentralManagerDelegate(this);
         _centralManager = new CBCentralManager(_centralDelegate, null);
-        Logger.Log("CoreBluetoothBleAdapter: created CBCentralManager");
+        _logger.LogInformation("Created CBCentralManager");
     }
 
     public async Task StartScanAsync(CancellationToken ct = default)
     {
-        Logger.Log("CoreBluetoothBleAdapter: StartScanAsync requested");
+        _logger.LogInformation("StartScanAsync requested");
 
         // Wait for the central manager to reach PoweredOn state.
         await _centralDelegate.WaitForPoweredOnAsync(ct);
 
-        Logger.Log("CoreBluetoothBleAdapter: CBCentralManager is PoweredOn, starting scan");
+        _logger.LogInformation("CBCentralManager is PoweredOn, starting scan");
 
         // Clear previous discoveries for a fresh scan.
         lock (_peripheralLock)
@@ -71,13 +73,13 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
         if (_centralManager.IsScanning)
         {
             _centralManager.StopScan();
-            Logger.Log("CoreBluetoothBleAdapter: scan stopped");
+            _logger.LogInformation("Scan stopped");
         }
     }
 
     public IBleGattConnection CreateConnection()
     {
-        return new CoreBluetoothGattConnection(_centralManager, _centralDelegate, this);
+        return new CoreBluetoothGattConnection(_centralManager, _centralDelegate, this, _logger);
     }
 
     /// <summary>
@@ -128,7 +130,7 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
             ManufacturerData = manufacturerData
         };
 
-        Logger.Log($"CoreBluetoothBleAdapter: discovered {name} ({uuid}) RSSI={rssi.Int32Value}");
+        _logger.LogDebug("Discovered {Name} ({Uuid}) RSSI={Rssi}", name, uuid, rssi.Int32Value);
         AdvertisementReceived?.Invoke(this, advertisement);
     }
 
@@ -136,7 +138,7 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
     {
         StopScan();
         _centralManager.Dispose();
-        Logger.Log("CoreBluetoothBleAdapter: disposed");
+        _logger.LogInformation("Disposed");
     }
 
     // ──────────────────────────────────────────────────────────────────
@@ -194,7 +196,7 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
 
         public override void UpdatedState(CBCentralManager central)
         {
-            Logger.Log($"CoreBluetoothBleAdapter: CBCentralManager state → {central.State}");
+            _adapter._logger.LogInformation("CBCentralManager state changed to {State}", central.State);
 
             lock (_poweredOnLock)
             {
@@ -231,7 +233,7 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
         public override void ConnectedPeripheral(CBCentralManager central, CBPeripheral peripheral)
         {
             var uuid = peripheral.Identifier.ToString();
-            Logger.Log($"CoreBluetoothBleAdapter: connected to {uuid}");
+            _adapter._logger.LogInformation("Connected to {Uuid}", uuid);
 
             lock (_connectLock)
             {
@@ -246,7 +248,7 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
         public override void FailedToConnectPeripheral(CBCentralManager central, CBPeripheral peripheral, NSError? error)
         {
             var uuid = peripheral.Identifier.ToString();
-            Logger.Log($"CoreBluetoothBleAdapter: failed to connect to {uuid} — {error?.LocalizedDescription ?? "unknown error"}");
+            _adapter._logger.LogWarning("Failed to connect to {Uuid} — {Error}", uuid, error?.LocalizedDescription ?? "unknown error");
 
             lock (_connectLock)
             {
@@ -262,7 +264,7 @@ public sealed class CoreBluetoothBleAdapter : IBleAdapter, IDisposable
         public override void DisconnectedPeripheral(CBCentralManager central, CBPeripheral peripheral, NSError? error)
         {
             var uuid = peripheral.Identifier.ToString();
-            Logger.Log($"CoreBluetoothBleAdapter: disconnected from {uuid} — {error?.LocalizedDescription ?? "clean"}");
+            _adapter._logger.LogInformation("Disconnected from {Uuid} — {Reason}", uuid, error?.LocalizedDescription ?? "clean");
 
             lock (_disconnectLock)
             {
@@ -311,6 +313,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
     private readonly CBCentralManager _centralManager;
     private readonly CoreBluetoothBleAdapter.CentralManagerDelegate _centralDelegate;
     private readonly CoreBluetoothBleAdapter _adapter;
+    private readonly ILogger _logger;
 
     private CBPeripheral? _peripheral;
     private PeripheralDelegate? _peripheralDelegate;
@@ -322,16 +325,18 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
     public CoreBluetoothGattConnection(
         CBCentralManager centralManager,
         CoreBluetoothBleAdapter.CentralManagerDelegate centralDelegate,
-        CoreBluetoothBleAdapter adapter)
+        CoreBluetoothBleAdapter adapter,
+        ILogger logger)
     {
         _centralManager = centralManager;
         _centralDelegate = centralDelegate;
         _adapter = adapter;
+        _logger = logger;
     }
 
     public async Task ConnectAsync(string deviceId, CancellationToken ct = default)
     {
-        Logger.Log($"CoreBluetoothGattConnection: connecting to {deviceId}");
+        _logger.LogInformation("Connecting to {DeviceId}", deviceId);
         _deviceId = deviceId;
 
         // Look up the peripheral from the adapter's discovered-peripheral cache.
@@ -343,7 +348,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
         }
 
         // Attach our peripheral delegate to receive service/characteristic callbacks.
-        _peripheralDelegate = new PeripheralDelegate(this);
+        _peripheralDelegate = new PeripheralDelegate(this, _logger);
         _peripheral.Delegate = _peripheralDelegate;
 
         // Register a TCS for the connection callback on the central manager.
@@ -372,7 +377,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
         // Discover all services up front.
         await DiscoverServicesAsync(ct);
 
-        Logger.Log($"CoreBluetoothGattConnection: fully connected and services discovered for {deviceId}");
+        _logger.LogInformation("Fully connected and services discovered for {DeviceId}", deviceId);
     }
 
     public async Task SubscribeNotifyAsync(Guid serviceUuid, Guid characteristicUuid, CancellationToken ct = default)
@@ -382,7 +387,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
 
         var characteristic = FindCharacteristic(serviceUuid, characteristicUuid);
 
-        Logger.Log($"CoreBluetoothGattConnection: subscribing to notifications on {characteristicUuid}");
+        _logger.LogInformation("Subscribing to notifications on {CharacteristicUuid}", characteristicUuid);
 
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         _peripheralDelegate.RegisterNotifyCallback(characteristic.UUID.ToString(), tcs);
@@ -393,7 +398,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
         cts.CancelAfter(TimeSpan.FromSeconds(10));
         await tcs.Task.WaitAsync(cts.Token);
 
-        Logger.Log($"CoreBluetoothGattConnection: notifications enabled for {characteristicUuid}");
+        _logger.LogInformation("Notifications enabled for {CharacteristicUuid}", characteristicUuid);
     }
 
     public async Task WriteAsync(Guid serviceUuid, Guid characteristicUuid, byte[] data, CancellationToken ct = default)
@@ -403,7 +408,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
 
         var characteristic = FindCharacteristic(serviceUuid, characteristicUuid);
 
-        Logger.Log($"CoreBluetoothGattConnection: writing {data.Length} bytes to {characteristicUuid}");
+        _logger.LogDebug("Writing {DataLength} bytes to {CharacteristicUuid}", data.Length, characteristicUuid);
 
         var tcs = new TaskCompletionSource<NSError?>(TaskCreationOptions.RunContinuationsAsynchronously);
         _peripheralDelegate.RegisterWriteCallback(characteristic.UUID.ToString(), tcs);
@@ -421,7 +426,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
                 $"Write to {characteristicUuid} failed: {error.LocalizedDescription}");
         }
 
-        Logger.Log($"CoreBluetoothGattConnection: write completed for {characteristicUuid}");
+        _logger.LogDebug("Write completed for {CharacteristicUuid}", characteristicUuid);
     }
 
     public async Task DisconnectAsync()
@@ -432,7 +437,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
             return;
         }
 
-        Logger.Log($"CoreBluetoothGattConnection: disconnecting from {_deviceId}");
+        _logger.LogInformation("Disconnecting from {DeviceId}", _deviceId);
 
         if (IsConnected)
         {
@@ -449,7 +454,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
             }
             catch (OperationCanceledException)
             {
-                Logger.Log($"CoreBluetoothGattConnection: disconnect timed out for {_deviceId}");
+                _logger.LogWarning("Disconnect timed out for {DeviceId}", _deviceId);
             }
         }
 
@@ -458,7 +463,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
         _peripheral = null;
         _peripheralDelegate = null;
 
-        Logger.Log($"CoreBluetoothGattConnection: disconnected from {_deviceId}");
+        _logger.LogInformation("Disconnected from {DeviceId}", _deviceId);
     }
 
     public async ValueTask DisposeAsync()
@@ -491,11 +496,11 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
 
         if (_peripheral.Services == null || _peripheral.Services.Length == 0)
         {
-            Logger.Log("CoreBluetoothGattConnection: no services found on peripheral");
+            _logger.LogWarning("No services found on peripheral");
             return;
         }
 
-        Logger.Log($"CoreBluetoothGattConnection: discovered {_peripheral.Services.Length} services");
+        _logger.LogInformation("Discovered {ServiceCount} services", _peripheral.Services.Length);
 
         // Discover characteristics on every service.
         foreach (var service in _peripheral.Services)
@@ -510,7 +515,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
             await charTcs.Task.WaitAsync(cts.Token);
 
             var count = service.Characteristics?.Length ?? 0;
-            Logger.Log($"CoreBluetoothGattConnection: service {service.UUID} → {count} characteristics");
+            _logger.LogDebug("Service {ServiceUuid} has {CharCount} characteristics", service.UUID, count);
         }
     }
 
@@ -561,6 +566,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
     private sealed class PeripheralDelegate : CBPeripheralDelegate
     {
         private readonly CoreBluetoothGattConnection _connection;
+        private readonly ILogger _logger;
 
         // Service discovery.
         private TaskCompletionSource? _serviceDiscoveryTcs;
@@ -578,9 +584,10 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
         private readonly Dictionary<string, TaskCompletionSource<NSError?>> _writeMap = new();
         private readonly object _writeLock = new();
 
-        public PeripheralDelegate(CoreBluetoothGattConnection connection)
+        public PeripheralDelegate(CoreBluetoothGattConnection connection, ILogger logger)
         {
             _connection = connection;
+            _logger = logger;
         }
 
         // ── Registration helpers ─────────────────────────────────────
@@ -622,7 +629,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
         public override void DiscoveredService(CBPeripheral peripheral, NSError? error)
         {
             if (error != null)
-                Logger.Log($"PeripheralDelegate: service discovery error — {error.LocalizedDescription}");
+                _logger.LogWarning("Service discovery error — {Error}", error.LocalizedDescription);
 
             lock (_serviceDiscoveryLock)
             {
@@ -641,7 +648,7 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
             var key = service.UUID.ToString();
 
             if (error != null)
-                Logger.Log($"PeripheralDelegate: characteristic discovery error on {key} — {error.LocalizedDescription}");
+                _logger.LogWarning("Characteristic discovery error on {ServiceKey} — {Error}", key, error.LocalizedDescription);
 
             lock (_charDiscoveryLock)
             {
@@ -662,14 +669,14 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
         {
             if (error != null)
             {
-                Logger.Log($"PeripheralDelegate: value update error on {characteristic.UUID} — {error.LocalizedDescription}");
+                _logger.LogWarning("Value update error on {CharUuid} — {Error}", characteristic.UUID, error.LocalizedDescription);
                 return;
             }
 
             var data = characteristic.Value?.ToArray();
             if (data != null)
             {
-                Logger.Log($"PeripheralDelegate: notification received on {characteristic.UUID}, {data.Length} bytes");
+                _logger.LogDebug("Notification received on {CharUuid}, {DataLength} bytes", characteristic.UUID, data.Length);
                 _connection.OnNotificationReceived(data);
             }
         }
@@ -679,9 +686,9 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
             var key = characteristic.UUID.ToString();
 
             if (error != null)
-                Logger.Log($"PeripheralDelegate: notify state update error on {key} — {error.LocalizedDescription}");
+                _logger.LogWarning("Notify state update error on {Key} — {Error}", key, error.LocalizedDescription);
             else
-                Logger.Log($"PeripheralDelegate: notify state updated for {key}, isNotifying={characteristic.IsNotifying}");
+                _logger.LogInformation("Notify state updated for {Key}, isNotifying={IsNotifying}", key, characteristic.IsNotifying);
 
             lock (_notifyLock)
             {
@@ -703,9 +710,9 @@ internal sealed class CoreBluetoothGattConnection : IBleGattConnection
             var key = characteristic.UUID.ToString();
 
             if (error != null)
-                Logger.Log($"PeripheralDelegate: write error on {key} — {error.LocalizedDescription}");
+                _logger.LogWarning("Write error on {Key} — {Error}", key, error.LocalizedDescription);
             else
-                Logger.Log($"PeripheralDelegate: write acknowledged for {key}");
+                _logger.LogDebug("Write acknowledged for {Key}", key);
 
             lock (_writeLock)
             {

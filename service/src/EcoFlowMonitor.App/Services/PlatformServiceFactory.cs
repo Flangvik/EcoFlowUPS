@@ -83,11 +83,11 @@ internal class NoOpStartupService : IStartupService { public bool IsEnabled() =>
 internal class NoOpScriptRunnerService : IScriptRunnerService { public void RunScript(string scriptPath) { } }
 internal class NoOpElevationService : IElevationService { public bool IsElevated() => false; public bool RestartElevated(string[] args) => false; }
 
-// Stub BLE adapter — logs operations but does nothing. Replace with platform-specific implementations.
+// Stub BLE adapter — does nothing. Replace with platform-specific implementations.
 internal class StubBleAdapter : IBleAdapter
 {
     public event EventHandler<BleAdvertisement>? AdvertisementReceived;
-    public Task StartScanAsync(CancellationToken ct = default) { Logging.Logger.Log("StubBleAdapter: scan requested (no-op)"); return Task.CompletedTask; }
+    public Task StartScanAsync(CancellationToken ct = default) => Task.CompletedTask;
     public void StopScan() { }
     public IBleGattConnection CreateConnection() => new StubGattConnection();
 }

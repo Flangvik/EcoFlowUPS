@@ -2,11 +2,11 @@ using EcoFlowMonitor.Actions;
 using EcoFlowMonitor.Client;
 using EcoFlowMonitor.Client.Ble;
 using EcoFlowMonitor.Config;
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Platform;
 using EcoFlowMonitor.State;
 using EcoFlowMonitor.Triggers;
+using Microsoft.Extensions.Logging;
 
 namespace EcoFlowMonitor.Services;
 
@@ -15,15 +15,19 @@ public class MonitorOrchestrator : IDisposable
     private readonly AppConfig _config;
     private readonly ActionRunner _actionRunner;
     private readonly IBleAdapter _bleAdapter;
+    private readonly ILoggerFactory _loggerFactory;
+    private readonly ILogger<MonitorOrchestrator> _logger;
     private readonly List<MonitorEntry> _monitors = new();
 
     public event EventHandler<DeviceStateEventArgs>? DeviceUpdated;
 
-    public MonitorOrchestrator(AppConfig config, INotificationService notifications, IPowerActionService power, IScriptRunnerService scripts, IBleAdapter bleAdapter)
+    public MonitorOrchestrator(AppConfig config, INotificationService notifications, IPowerActionService power, IScriptRunnerService scripts, IBleAdapter bleAdapter, ILoggerFactory loggerFactory)
     {
         _config = config;
         _actionRunner = new ActionRunner(notifications, power, scripts);
         _bleAdapter = bleAdapter;
+        _loggerFactory = loggerFactory;
+        _logger = loggerFactory.CreateLogger<MonitorOrchestrator>();
     }
 
     public IReadOnlyList<DeviceState> GetLiveStates() => _monitors.Select(m => m.State).ToList();
@@ -78,19 +82,20 @@ public class MonitorOrchestrator : IDisposable
         var userId = GetUserId();
         if (string.IsNullOrEmpty(userId)) return;
 
-        Logger.Log($"MonitorOrchestrator: starting BLE monitor for {device.DisplayName} sn={device.SerialNumber}");
+        _logger.LogInformation("Starting BLE monitor for {DisplayName} sn={SerialNumber}", device.DisplayName, device.SerialNumber);
 
         // Notify UI about BLE scanning status
         DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(state, "Scanning for BLE..."));
 
-        var monitor = new BleMonitor(device, state, userId, _bleAdapter);
+        var monitor = new BleMonitor(device, state, userId, _bleAdapter,
+            _loggerFactory.CreateLogger<BleMonitor>(), _loggerFactory);
         var entry = new MonitorEntry(device, state, monitor);
         _monitors.Add(entry);
         monitor.StateChanged += (s, e) => OnStateChanged(entry, e);
         _ = Task.Run(async () =>
         {
             try { await monitor.StartAsync(); }
-            catch (Exception ex) { Logger.Log($"MonitorOrchestrator: BLE monitor crashed — {ex.GetType().Name}: {ex.Message}"); }
+            catch (Exception ex) { _logger.LogError(ex, "BLE monitor crashed — {ExType}: {Message}", ex.GetType().Name, ex.Message); }
         });
     }
 
@@ -102,7 +107,8 @@ public class MonitorOrchestrator : IDisposable
             await client.LoginAsync(_config.Account!.Email!, _config.Account.Password!);
             var creds = await client.GetMqttCredsAsync();
 
-            var monitor = new MqttMonitor(device, state, creds, client.UserId!);
+            var monitor = new MqttMonitor(device, state, creds, client.UserId!,
+                _loggerFactory.CreateLogger<MqttMonitor>());
             var entry = new MonitorEntry(device, state, monitor);
             _monitors.Add(entry);
             monitor.StateChanged += (s, e) => OnStateChanged(entry, e);
@@ -110,7 +116,7 @@ public class MonitorOrchestrator : IDisposable
         }
         catch (Exception ex)
         {
-            Logger.Log($"MonitorOrchestrator: MQTT connect failed for {device.DisplayName}: {ex.Message}");
+            _logger.LogWarning(ex, "MQTT connect failed for {DisplayName}", device.DisplayName);
         }
     }
 
@@ -133,7 +139,7 @@ public class MonitorOrchestrator : IDisposable
             // Upgrade to Auto if currently Cloud-only
             if (existing.ConnectionMode == ConnectionMode.Cloud)
                 existing.ConnectionMode = ConnectionMode.Auto;
-            Logger.Log($"MonitorOrchestrator: merged BLE into existing device {existing.DisplayName} sn={serialNumber}");
+            _logger.LogInformation("Merged BLE into existing device {DisplayName} sn={SerialNumber}", existing.DisplayName, serialNumber);
         }
         else
         {
@@ -150,7 +156,7 @@ public class MonitorOrchestrator : IDisposable
                 HasCloud = false
             };
             _config.Devices.Add(existing);
-            Logger.Log($"MonitorOrchestrator: added new BLE device {bleName} sn={serialNumber}");
+            _logger.LogInformation("Added new BLE device {BleName} sn={SerialNumber}", bleName, serialNumber);
         }
 
         if (string.IsNullOrEmpty(_config.LocalUserId))
@@ -169,7 +175,8 @@ public class MonitorOrchestrator : IDisposable
         var existingMonitor = _monitors.FirstOrDefault(m => m.Device.SerialNumber == device.SerialNumber);
         if (existingMonitor != null)
         {
-            Logger.Log($"MonitorOrchestrator: device {device.SerialNumber} already monitored via {(existingMonitor.Monitor is BleMonitor ? "BLE" : "Cloud")}");
+            _logger.LogInformation("Device {SerialNumber} already monitored via {MonitorType}",
+                device.SerialNumber, existingMonitor.Monitor is BleMonitor ? "BLE" : "Cloud");
             // Already connected — notify UI to refresh
             DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(existingMonitor.State));
             return;
@@ -188,7 +195,7 @@ public class MonitorOrchestrator : IDisposable
             foreach (var action in rule.Actions)
             {
                 try { _actionRunner.Run(action, entry.Device, e.State); }
-                catch (Exception ex) { Logger.Log($"Action failed: {ex.Message}"); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Action failed"); }
             }
             TriggerEvaluator.RecordFired(rule, e.State);
         }
@@ -204,7 +211,7 @@ public class MonitorOrchestrator : IDisposable
         var existing = _monitors.FirstOrDefault(m => m.Device.SerialNumber == device.SerialNumber);
         if (existing != null)
         {
-            Logger.Log($"MonitorOrchestrator: stopping monitor for {device.SerialNumber}");
+            _logger.LogInformation("Stopping monitor for {SerialNumber}", device.SerialNumber);
             try { await existing.Monitor.StopAsync(); } catch { }
             existing.Monitor.Dispose();
             _monitors.Remove(existing);
@@ -279,7 +286,7 @@ public class MonitorOrchestrator : IDisposable
         }
         catch (Exception ex)
         {
-            Logger.Log($"RefreshDevices failed: {ex.Message}");
+            _logger.LogWarning(ex, "RefreshDevices failed");
         }
     }
 
