@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 01-infrastructure-01-03-PLAN.md
-last_updated: "2026-03-30T11:39:23.523Z"
+status: verifying
+stopped_at: Completed 01-infrastructure-01-04-PLAN.md
+last_updated: "2026-03-30T11:47:40.833Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 4
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 2
+  completed_plans: 4
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 
 Phase: 01 (infrastructure) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-infrastructure P02 | 602 | 2 tasks | 10 files |
 | Phase 01-infrastructure P01 | 35 | 2 tasks | 11 files |
 | Phase 01-infrastructure P03 | 427 | 2 tasks | 3 files |
+| Phase 01-infrastructure P04 | 380 | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Recent decisions affecting current work:
 - [Phase 01-infrastructure]: BLE Polly: exponential backoff without circuit breaker (BLE does not rate-limit)
 - [Phase 01-infrastructure]: MQTT Polly: circuit breaker (3 failures / 30s break) before retry to prevent EcoFlow broker lockout
 - [Phase 01-infrastructure]: CONN-05 fix: ConfigManager.Save() now called only after RestartDeviceAsync() succeeds; failure reverts ConnectionMode
+- [Phase 01-infrastructure]: GlowStatusIndicator bound to IsActive=IsConnected (bool) — control has no Status property, plan was incorrect
+- [Phase 01-infrastructure]: Stat cards wrapped in single Grid with DataOpacity binding for uniform dimming (D-04)
 
 ### Pending Todos
 
@@ -88,6 +91,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-30T11:39:23.520Z
-Stopped at: Completed 01-infrastructure-01-03-PLAN.md
+Last session: 2026-03-30T11:47:40.830Z
+Stopped at: Completed 01-infrastructure-01-04-PLAN.md
 Resume file: None

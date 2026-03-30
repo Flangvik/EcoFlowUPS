@@ -46,7 +46,7 @@
 ### UX Polish
 
 - [ ] **UX-01**: Dashboard layout has clear visual hierarchy — power state prominent, details scannable
-- [ ] **UX-02**: Error states are always surfaced — no blank screens, no silent failures
+- [x] **UX-02**: Error states are always surfaced — no blank screens, no silent failures
 - [x] **UX-03**: Verbose debug logging removed from production (BleTransport frame-level logs)
 
 ## v2 Requirements
@@ -107,7 +107,7 @@
 | SET-03 | Phase 4 | Pending |
 | SET-04 | Phase 4 | Pending |
 | UX-01 | Phase 4 | Pending |
-| UX-02 | Phase 1 | Pending |
+| UX-02 | Phase 1 | Complete |
 | UX-03 | Phase 1 | Complete |
 
 ---

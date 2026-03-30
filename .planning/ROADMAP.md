@@ -12,7 +12,7 @@ Starting from a working macOS-only prototype, this milestone hardens the foundat
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Infrastructure** - Replace the logging stack, add thread safety, wire the connection state machine, and remove silent failures throughout
+- [x] **Phase 1: Infrastructure** - Replace the logging stack, add thread safety, wire the connection state machine, and remove silent failures throughout (completed 2026-03-30)
 - [ ] **Phase 2: Cross-Platform BLE** - Add Windows (WinRT) and Linux (BlueZ) BLE adapters against the existing IBleAdapter interface
 - [ ] **Phase 3: History & Persistence** - Persist telemetry to SQLite and surface it as in-app historical charts and an event log
 - [ ] **Phase 4: Rules, Settings & Polish** - Complete the rules engine with webhook/script/notification actions, wire the settings page, and finish UX polish
@@ -34,8 +34,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Serilog migration (big-bang Logger.Log replacement, bootstrap logger, ILogger<T> injection)
 - [x] 01-02-PLAN.md — DeviceState contracts: ConnectionStatus enums, thread-safety lock, bare catch fixes
-- [ ] 01-03-PLAN.md — Connection FSM + Polly: Stateless state machine in both monitors, CONN-05 bug fix
-- [ ] 01-04-PLAN.md — State badge bar UI: DeviceViewModel props, staleness timer, DashboardView insertion
+- [x] 01-03-PLAN.md — Connection FSM + Polly: Stateless state machine in both monitors, CONN-05 bug fix
+- [x] 01-04-PLAN.md — State badge bar UI: DeviceViewModel props, staleness timer, DashboardView insertion
 
 ### Phase 2: Cross-Platform BLE
 **Goal**: BLE monitoring works on Windows and Linux using platform-native adapters, with the same resilient reconnect lifecycle already established in Phase 1
@@ -79,7 +79,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure | 1/4 | In Progress|  |
+| 1. Infrastructure | 4/4 | Complete   | 2026-03-30 |
 | 2. Cross-Platform BLE | 0/TBD | Not started | - |
 | 3. History & Persistence | 0/TBD | Not started | - |
 | 4. Rules, Settings & Polish | 0/TBD | Not started | - |
