@@ -56,8 +56,12 @@ Plans:
   1. User can open a history view and see battery %, voltage, and power charts with a time range selector (hourly / daily / weekly)
   2. User can view a timestamped event log of power lost, restored, low battery, and connection change events that persists across app restarts
   3. The app never shows a "database is locked" error — concurrent read/write from UI and telemetry writer work without contention
-**Plans**: TBD
-**UI hint**: yes
+**Plans**: 3 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — SQLite persistence layer: IHistoryStore/IEventStore contracts, SqliteHistoryStore/SqliteEventStore with WAL + Channel<T> debounce
+- [ ] 03-02-PLAN.md — MonitorOrchestrator integration: EnqueueSnapshot on every tick, EnqueueEvent on power transitions, DI registration
+- [ ] 03-03-PLAN.md — HistoryView UI: HistoryViewModel with time range selector, LiveChartsCore 2.0.0 charts, event log, dashboard navigation wiring
 
 ### Phase 4: Rules, Settings & Polish
 **Goal**: Users can configure rules that fire real actions on power events, manage all app settings through a working settings page, and read the dashboard at a glance
@@ -81,5 +85,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Infrastructure | 4/4 | Complete   | 2026-03-30 |
 | 2. Cross-Platform BLE | 0/TBD | Not started | - |
-| 3. History & Persistence | 0/TBD | Not started | - |
+| 3. History & Persistence | 0/3 | Not started | - |
 | 4. Rules, Settings & Polish | 0/TBD | Not started | - |
