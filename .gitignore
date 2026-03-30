@@ -16,3 +16,4 @@ obj/
 # Diagnostic tools with hardcoded credentials
 poc/mqtt_diag.py
 service/EcoFlowDiag/
+.claude/worktrees/
