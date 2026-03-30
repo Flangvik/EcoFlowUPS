@@ -1,0 +1,74 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:EcoFlowMonitor.ViewModels"
+             xmlns:history="using:EcoFlowMonitor.History"
+             xmlns:converters="using:EcoFlowMonitor.Converters"
+             xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+             x:Class="EcoFlowMonitor.Views.HistoryView"
+             x:DataType="vm:HistoryViewModel"
+             Background="{StaticResource BackgroundPrimary}">
+    <DockPanel>
+        <!-- Top bar -->
+        <Border DockPanel.Dock="Top" Background="{StaticResource BackgroundSecondary}"
+                Padding="16,8" BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="0,0,0,1">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Grid.Column="0" Classes="Ghost" Content="Back" Command="{Binding GoBackCommand}" />
+                <TextBlock Grid.Column="1" Text="History" Classes="BodyMedium"
+                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                <!-- Time range selector -->
+                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4">
+                    <RadioButton Content="1H"  GroupName="TimeRange"
+                                 IsChecked="{Binding SelectedRange, Converter={x:Static converters:StringEqualityConverter.Instance}, ConverterParameter='1H'}" />
+                    <RadioButton Content="24H" GroupName="TimeRange"
+                                 IsChecked="{Binding SelectedRange, Converter={x:Static converters:StringEqualityConverter.Instance}, ConverterParameter='24H'}" />
+                    <RadioButton Content="7D"  GroupName="TimeRange"
+                                 IsChecked="{Binding SelectedRange, Converter={x:Static converters:StringEqualityConverter.Instance}, ConverterParameter='7D'}" />
+                    <RadioButton Content="30D" GroupName="TimeRange"
+                                 IsChecked="{Binding SelectedRange, Converter={x:Static converters:StringEqualityConverter.Instance}, ConverterParameter='30D'}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main content: charts + event log side by side -->
+        <Grid ColumnDefinitions="*,280">
+            <!-- Charts -->
+            <StackPanel Grid.Column="0" Margin="16" Spacing="16">
+                <TextBlock Text="Battery %" Classes="BodyMedium" />
+                <lvc:CartesianChart Series="{Binding BatterySeries}"
+                                    XAxes="{Binding XAxes}"
+                                    Height="180" />
+                <TextBlock Text="Power (W)" Classes="BodyMedium" />
+                <lvc:CartesianChart Series="{Binding PowerSeries}"
+                                    XAxes="{Binding XAxes}"
+                                    Height="180" />
+            </StackPanel>
+
+            <!-- Event log -->
+            <Border Grid.Column="1" Background="{StaticResource BackgroundSecondary}"
+                    BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="1,0,0,0"
+                    Padding="12">
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Top" Text="Events"
+                               Classes="BodyMedium" Margin="0,0,0,8" />
+                    <ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding EventLog}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="history:PowerEventItem">
+                                    <StackPanel Margin="0,4">
+                                        <TextBlock Text="{Binding EventType}"
+                                                   Classes="BodyMedium" FontSize="12" />
+                                        <TextBlock Text="{Binding TimeLabel}"
+                                                   Foreground="{StaticResource TextMuted}" FontSize="11" />
+                                        <TextBlock Text="{Binding Detail}"
+                                                   Foreground="{StaticResource TextSecondary}" FontSize="11"
+                                                   IsVisible="{Binding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </DockPanel>
+            </Border>
+        </Grid>
+    </DockPanel>
+</UserControl>

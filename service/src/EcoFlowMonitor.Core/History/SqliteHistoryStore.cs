@@ -1,5 +1,4 @@
 using System.Threading.Channels;
-using EcoFlowMonitor.Logging;
 using Microsoft.Data.Sqlite;
 
 namespace EcoFlowMonitor.History;
@@ -39,7 +38,7 @@ public sealed class SqliteHistoryStore : IHistoryStore
     public void EnqueueSnapshot(TelemetrySnapshot snapshot)
     {
         if (!_writeQueue.Writer.TryWrite(snapshot))
-            Logger.Log("[SqliteHistoryStore] Write queue full; oldest snapshot dropped.");
+            System.Diagnostics.Debug.WriteLine("[SqliteHistoryStore] Write queue full; oldest snapshot dropped.");
     }
 
     public async Task<IReadOnlyList<TelemetrySnapshot>> QueryAsync(
@@ -219,7 +218,7 @@ CREATE INDEX IF NOT EXISTS idx_events_device_ts
                 }
             }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Logger.Log($"[SqliteHistoryStore] Write consumer error: {ex.Message}"); }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[SqliteHistoryStore] Write consumer error: {ex.Message}"); }
         }
     }
 
