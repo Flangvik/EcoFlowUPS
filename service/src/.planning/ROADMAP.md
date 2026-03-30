@@ -39,7 +39,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. User can connect to an EcoFlow Delta 3 via BLE on Windows 10/11 and receive live telemetry — ECDH handshake completes and data streams correctly
   2. User can connect via BLE on Linux and receive live telemetry; if the user is not in the bluetooth group, a human-readable diagnostic error is shown rather than a silent failure
   3. BLE reconnects on both platforms re-run the full ECDH handshake — stale crypto state never produces silently corrupted data
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Windows BLE adapter: WinRtBleAdapter + WinRtGattConnection via WinRT (CONN-03)
+- [ ] 02-02-PLAN.md — Linux BLE adapter: BlueZBleAdapter + BlueZGattConnection + BlueZPermissionCheck via Linux.Bluetooth 5.67.1 (CONN-04)
+
 **UI hint**: yes
 
 ### Phase 3: History & Persistence
@@ -74,6 +79,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Infrastructure | 0/TBD | Not started | - |
-| 2. Cross-Platform BLE | 0/TBD | Not started | - |
+| 2. Cross-Platform BLE | 0/2 | Not started | - |
 | 3. History & Persistence | 0/TBD | Not started | - |
 | 4. Rules, Settings & Polish | 0/TBD | Not started | - |
