@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-infrastructure-01-01-PLAN.md
-last_updated: "2026-03-30T11:27:26.055Z"
+stopped_at: Completed 01-infrastructure-01-03-PLAN.md
+last_updated: "2026-03-30T11:39:23.523Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 4
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 ## Current Position
 
 Phase: 01 (infrastructure) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-03-30
 
@@ -54,6 +54,7 @@ Progress: [░░░░░░░░░░] 0%
 *Updated after each plan completion*
 | Phase 01-infrastructure P02 | 602 | 2 tasks | 10 files |
 | Phase 01-infrastructure P01 | 35 | 2 tasks | 11 files |
+| Phase 01-infrastructure P03 | 427 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -70,6 +71,9 @@ Recent decisions affecting current work:
 - [Phase 01-infrastructure]: Added Serilog.Extensions.Hosting for CreateBootstrapLogger() — not included in original plan
 - [Phase 01-infrastructure]: ILoggerFactory passed to MonitorOrchestrator for transient monitor logger creation
 - [Phase 01-infrastructure]: Microsoft.Extensions.DependencyInjection upgraded 8.0.1 to 10.0.0 for Serilog version compat
+- [Phase 01-infrastructure]: BLE Polly: exponential backoff without circuit breaker (BLE does not rate-limit)
+- [Phase 01-infrastructure]: MQTT Polly: circuit breaker (3 failures / 30s break) before retry to prevent EcoFlow broker lockout
+- [Phase 01-infrastructure]: CONN-05 fix: ConfigManager.Save() now called only after RestartDeviceAsync() succeeds; failure reverts ConnectionMode
 
 ### Pending Todos
 
@@ -84,6 +88,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-30T11:27:26.052Z
-Stopped at: Completed 01-infrastructure-01-01-PLAN.md
+Last session: 2026-03-30T11:39:23.520Z
+Stopped at: Completed 01-infrastructure-01-03-PLAN.md
 Resume file: None

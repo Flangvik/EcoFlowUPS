@@ -11,14 +11,14 @@
 - [x] **CONN-02**: App displays last-known data with staleness indicator ("Last update: 5m ago") when device is disconnected
 - [ ] **CONN-03**: BLE connection works on Windows via WinRT Bluetooth LE APIs
 - [ ] **CONN-04**: BLE connection works on Linux via BlueZ D-Bus (Linux.Bluetooth)
-- [ ] **CONN-05**: Connection mode toggle (Cloud/BLE/Auto) provides clear feedback during transitions and actually restarts the monitor
+- [x] **CONN-05**: Connection mode toggle (Cloud/BLE/Auto) provides clear feedback during transitions and actually restarts the monitor
 
 ### Infrastructure
 
 - [x] **INFRA-01**: Replace static Logger with Serilog structured logging (file sink with rotation, log levels)
 - [x] **INFRA-02**: DeviceState mutations are thread-safe (concurrent BLE + MQTT writes don't corrupt state)
 - [x] **INFRA-03**: Bare catch blocks replaced with proper error handling — no silent swallowing of exceptions
-- [ ] **INFRA-04**: Connection state machine (Stateless or equivalent) replaces raw while-loop retry in BleMonitor and MqttMonitor
+- [x] **INFRA-04**: Connection state machine (Stateless or equivalent) replaces raw while-loop retry in BleMonitor and MqttMonitor
 
 ### Data & History
 
@@ -87,11 +87,11 @@
 | CONN-02 | Phase 1 | Complete |
 | CONN-03 | Phase 2 | Pending |
 | CONN-04 | Phase 2 | Pending |
-| CONN-05 | Phase 1 | Pending |
+| CONN-05 | Phase 1 | Complete |
 | INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 1 | Complete |
 | INFRA-03 | Phase 1 | Complete |
-| INFRA-04 | Phase 1 | Pending |
+| INFRA-04 | Phase 1 | Complete |
 | DATA-01 | Phase 3 | Pending |
 | DATA-02 | Phase 3 | Pending |
 | DATA-03 | Phase 3 | Pending |
