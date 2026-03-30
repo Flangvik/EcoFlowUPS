@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using EcoFlowMonitor.Config;
+using EcoFlowMonitor.History;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Client.Ble;
 using EcoFlowMonitor.Services;
@@ -24,9 +25,15 @@ public partial class App : Application
         AvaloniaXamlLoader.Load(this);
     }
 
-    public override void OnFrameworkInitializationCompleted()
+    public override async void OnFrameworkInitializationCompleted()
     {
         var config = ConfigManager.Load();
+
+        var dataDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "EcoFlowMonitor");
+        Directory.CreateDirectory(dataDir);
+        var dbPath = Path.Combine(dataDir, "history.db");
 
         var logPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -60,8 +67,15 @@ public partial class App : Application
         services.AddTransient<SettingsViewModel>();
         services.AddSingleton<BleScanner>();
         services.AddTransient<BleScanViewModel>();
+        services.AddSingleton<IHistoryStore>(_ => new SqliteHistoryStore(dbPath));
+        services.AddSingleton<IEventStore>(_ => new SqliteEventStore(dbPath));
 
         Services = services.BuildServiceProvider();
+
+        var historyStore = Services.GetRequiredService<IHistoryStore>();
+        var eventStore   = Services.GetRequiredService<IEventStore>();
+        await historyStore.StartAsync();
+        await eventStore.StartAsync();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

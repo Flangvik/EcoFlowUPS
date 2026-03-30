@@ -1,5 +1,5 @@
+using System.Diagnostics;
 using System.Threading.Channels;
-using EcoFlowMonitor.Logging;
 using Microsoft.Data.Sqlite;
 
 namespace EcoFlowMonitor.History;
@@ -39,7 +39,7 @@ public sealed class SqliteEventStore : IEventStore
     public void EnqueueEvent(PowerEvent evt)
     {
         if (!_eventQueue.Writer.TryWrite(evt))
-            Logger.Log("[SqliteEventStore] Event write queue full; oldest event dropped.");
+            Debug.WriteLine("[SqliteEventStore] Event write queue full; oldest event dropped.");
     }
 
     public async Task<IReadOnlyList<PowerEventItem>> QueryAsync(
@@ -142,7 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_events_device_ts
                 }
             }
             catch (OperationCanceledException) { break; }
-            catch (Exception ex) { Logger.Log($"[SqliteEventStore] Event consumer error: {ex.Message}"); }
+            catch (Exception ex) { Debug.WriteLine($"[SqliteEventStore] Event consumer error: {ex.Message}"); }
         }
     }
 
