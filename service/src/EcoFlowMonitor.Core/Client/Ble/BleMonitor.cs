@@ -11,6 +11,9 @@ using Org.BouncyCastle.Crypto.Generators;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Math;
 using Org.BouncyCastle.Security;
+using Polly;
+using Polly.Retry;
+using Stateless;
 
 namespace EcoFlowMonitor.Client.Ble;
 
@@ -29,6 +32,15 @@ public class BleMonitor : IDeviceMonitor
     private TaskCompletionSource<bool>? _authTcs;
     private TaskCompletionSource<byte[]>? _handshakeTcs;
 
+    // -- FSM --
+    private StateMachine<ConnectionStatus, ConnectionTrigger>? _machine;
+    private StateMachine<ConnectionStatus, ConnectionTrigger>.TriggerWithParameters<TimeSpan>? _retryTrigger;
+    private StateMachine<ConnectionStatus, ConnectionTrigger>.TriggerWithParameters<string>? _errorTrigger;
+    private ResiliencePipeline? _connectPipeline;
+    private int _retryAttempt;
+    private TimeSpan _retryDelay;
+    private readonly object _machineLock = new(); // Stateless is not thread-safe
+
     public event EventHandler<StateChangedEventArgs>? StateChanged;
 
     public BleMonitor(DeviceConfig config, DeviceState state, string userId, IBleAdapter adapter, ILogger<BleMonitor> logger, ILoggerFactory loggerFactory)
@@ -39,11 +51,116 @@ public class BleMonitor : IDeviceMonitor
         _adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
+        InitStateMachine();
     }
+
+    // -- FSM setup --
+
+    private void InitStateMachine()
+    {
+        _machine = new StateMachine<ConnectionStatus, ConnectionTrigger>(ConnectionStatus.Idle);
+
+        _retryTrigger = _machine.SetTriggerParameters<TimeSpan>(ConnectionTrigger.RetryScheduled);
+        _errorTrigger = _machine.SetTriggerParameters<string>(ConnectionTrigger.ErrorOccurred);
+
+        _machine.Configure(ConnectionStatus.Idle)
+            .Permit(ConnectionTrigger.Start, ConnectionStatus.Scanning);
+
+        _machine.Configure(ConnectionStatus.Scanning)
+            .OnEntry(NotifyStateChanged)
+            .Permit(ConnectionTrigger.DeviceFound, ConnectionStatus.Connecting)
+            .Permit(ConnectionTrigger.Stop, ConnectionStatus.Idle)
+            .Permit(ConnectionTrigger.ErrorOccurred, ConnectionStatus.Error);
+
+        _machine.Configure(ConnectionStatus.Connecting)
+            .OnEntry(NotifyStateChanged)
+            .Permit(ConnectionTrigger.Connected, ConnectionStatus.Authenticating)
+            .Permit(ConnectionTrigger.RetryScheduled, ConnectionStatus.Retrying)
+            .Permit(ConnectionTrigger.Stop, ConnectionStatus.Idle)
+            .Permit(ConnectionTrigger.ErrorOccurred, ConnectionStatus.Error);
+
+        _machine.Configure(ConnectionStatus.Authenticating)
+            .OnEntry(NotifyStateChanged)
+            .Permit(ConnectionTrigger.Authenticated, ConnectionStatus.Streaming)
+            .Permit(ConnectionTrigger.RetryScheduled, ConnectionStatus.Retrying)
+            .Permit(ConnectionTrigger.Stop, ConnectionStatus.Idle)
+            .Permit(ConnectionTrigger.ErrorOccurred, ConnectionStatus.Error);
+
+        _machine.Configure(ConnectionStatus.Streaming)
+            .OnEntry(NotifyStateChanged)
+            .Permit(ConnectionTrigger.Disconnected, ConnectionStatus.Retrying)
+            .Permit(ConnectionTrigger.ErrorOccurred, ConnectionStatus.Error)
+            .Permit(ConnectionTrigger.Stop, ConnectionStatus.Idle);
+
+        _machine.Configure(ConnectionStatus.Retrying)
+            .OnEntryFrom(_retryTrigger, delay =>
+            {
+                _retryDelay = delay;
+                NotifyStateChanged();
+            })
+            .Permit(ConnectionTrigger.Start, ConnectionStatus.Connecting) // Polly fires next attempt
+            .Permit(ConnectionTrigger.Stop, ConnectionStatus.Idle);
+
+        _machine.Configure(ConnectionStatus.Error)
+            .OnEntryFrom(_errorTrigger, msg =>
+            {
+                lock (_state.SyncLock)
+                {
+                    _state.LastErrorMessage = msg;
+                    _state.LastErrorDetail = msg;
+                }
+                NotifyStateChanged();
+            })
+            .Permit(ConnectionTrigger.Start, ConnectionStatus.Connecting) // manual retry from UI
+            .Permit(ConnectionTrigger.Stop, ConnectionStatus.Idle);
+
+        _machine.Configure(ConnectionStatus.Disconnected)
+            .OnEntry(NotifyStateChanged)
+            .Permit(ConnectionTrigger.Start, ConnectionStatus.Scanning);
+
+        // Polly pipeline: exponential backoff, no circuit breaker for BLE
+        _connectPipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = int.MaxValue,
+                BackoffType = DelayBackoffType.Exponential,
+                Delay = TimeSpan.FromSeconds(2),
+                MaxDelay = TimeSpan.FromMinutes(5),
+                UseJitter = true,
+                OnRetry = args =>
+                {
+                    _retryAttempt = args.AttemptNumber + 1;
+                    lock (_machineLock)
+                    {
+                        if (_machine!.CanFire(ConnectionTrigger.RetryScheduled))
+                            _machine.Fire(_retryTrigger!, args.RetryDelay);
+                    }
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
+    }
+
+    private void NotifyStateChanged()
+    {
+        lock (_state.SyncLock)
+        {
+            _state.ConnectionStatus = _machine!.State;
+            _state.RetryAttempt = _retryAttempt;
+            _state.RetryDelay = _retryDelay;
+            _state.IsConnected = _machine.State == ConnectionStatus.Streaming;
+        }
+        // StateChanged raised OUTSIDE the lock -- prevents deadlock if handler reads _state
+        StateChanged?.Invoke(this, new StateChangedEventArgs(_state, _state.Power.Status));
+    }
+
+    // -- Lifecycle --
 
     public async Task StartAsync(CancellationToken ct = default)
     {
         _cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        _retryAttempt = 0;
+        lock (_machineLock) { _machine!.Fire(ConnectionTrigger.Start); }
         _logger.LogInformation("Starting for {DisplayName} sn={SerialNumber} enc={EncryptionType}",
             _config.DisplayName, _config.SerialNumber, _config.BleEncryptionType);
         await ConnectLoopAsync(_cts.Token);
@@ -51,27 +168,32 @@ public class BleMonitor : IDeviceMonitor
 
     private async Task ConnectLoopAsync(CancellationToken ct)
     {
-        while (!ct.IsCancellationRequested)
+        try
         {
-            try
+            await _connectPipeline!.ExecuteAsync(async token =>
             {
-                await ConnectAndAuthAsync(ct);
-                return;
-            }
-            catch (OperationCanceledException) { return; }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Connect failed, retry in 5s");
-                lock (_state.SyncLock)
+                // Always construct fresh transport + crypto for every connect attempt.
+                // This resets the ECDH session key (Pitfall 4 prevention).
+                _transport?.Dispose();
+                _transport = null;
+
+                lock (_machineLock)
                 {
-                    _state.IsConnected = false;
-                    _state.ConnectionStatus = ConnectionStatus.Retrying;
+                    if (_machine!.CanFire(ConnectionTrigger.Start))
+                        _machine.Fire(ConnectionTrigger.Start);
                 }
-                // StateChanged raised OUTSIDE the lock -- prevents deadlock if handler reads _state
-                StateChanged?.Invoke(this, new StateChangedEventArgs(_state, _state.Power.Status));
-                try { await Task.Delay(5000, ct); }
-                catch (OperationCanceledException) { return; }
+
+                await ConnectAndAuthAsync(token);
+            }, ct);
+        }
+        catch (OperationCanceledException) { /* StopAsync() called */ }
+        catch (Exception ex)
+        {
+            lock (_machineLock)
+            {
+                _machine!.Fire(_errorTrigger!, ex.Message);
             }
+            _logger.LogError(ex, "Non-retriable error for {DisplayName}", _config.DisplayName);
         }
     }
 
@@ -97,15 +219,27 @@ public class BleMonitor : IDeviceMonitor
         _adapter.StopScan();
         _logger.LogInformation("Scan complete, connecting...");
 
-        // Start with no encryption -- handshake frames are unencrypted
+        // Fire DeviceFound to transition Scanning -> Connecting
+        lock (_machineLock)
+        {
+            if (_machine!.CanFire(ConnectionTrigger.DeviceFound))
+                _machine.Fire(ConnectionTrigger.DeviceFound);
+        }
+
+        // Always construct fresh instances — never reuse across reconnects (ECDH reset)
         _crypto = new BleCryptoModern();
         _transport = new BleTransport(deviceInfo, _adapter, _loggerFactory.CreateLogger<BleTransport>(), crypto: null);
         _transport.PacketReceived += OnPacketReceived;
         _transport.RawFrameReceived += OnRawFrame;
 
         await _transport.ConnectAsync(ct);
-        _state.IsConnected = true;
-        StateChanged?.Invoke(this, new StateChangedEventArgs(_state, _state.Power.Status));
+
+        // Fire Connected to transition Connecting -> Authenticating
+        lock (_machineLock)
+        {
+            if (_machine!.CanFire(ConnectionTrigger.Connected))
+                _machine.Fire(ConnectionTrigger.Connected);
+        }
 
         // Key exchange
         if (_config.BleEncryptionType == 7)
@@ -115,15 +249,20 @@ public class BleMonitor : IDeviceMonitor
 
         // Authentication
         await SendAuthAsync(sn, ct);
+
+        // Fire Authenticated to transition Authenticating -> Streaming
+        lock (_machineLock)
+        {
+            if (_machine!.CanFire(ConnectionTrigger.Authenticated))
+                _machine.Fire(ConnectionTrigger.Authenticated);
+        }
+
         _logger.LogInformation("Authenticated, receiving heartbeat data");
     }
 
     private void SetType1Encryption(string sn)
     {
         _crypto = new BleCryptoLegacy(sn);
-        // Swap the transport's crypto by reconnecting with encryption
-        // Actually, for Type 1 the transport needs to decrypt incoming frames.
-        // We set the crypto and the transport will use it for subsequent frames.
         _logger.LogInformation("Type 1 encryption established");
     }
 
@@ -382,12 +521,14 @@ public class BleMonitor : IDeviceMonitor
 
     public async Task StopAsync()
     {
+        lock (_machineLock)
+        {
+            if (_machine!.CanFire(ConnectionTrigger.Stop))
+                _machine.Fire(ConnectionTrigger.Stop);
+        }
         _cts?.Cancel();
         if (_transport != null)
-        {
-            _state.IsConnected = false;
             await _transport.DisconnectAsync();
-        }
     }
 
     public void Dispose()
