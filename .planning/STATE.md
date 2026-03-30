@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-02-PLAN.md
-last_updated: "2026-03-30T11:24:01.322Z"
+stopped_at: Completed 01-infrastructure-01-01-PLAN.md
+last_updated: "2026-03-30T11:27:26.055Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,7 +26,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 ## Current Position
 
 Phase: 01 (infrastructure) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-03-30
 
@@ -53,6 +53,7 @@ Progress: [░░░░░░░░░░] 0%
 
 *Updated after each plan completion*
 | Phase 01-infrastructure P02 | 602 | 2 tasks | 10 files |
+| Phase 01-infrastructure P01 | 35 | 2 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,9 @@ Recent decisions affecting current work:
 - [Init]: Linux BLE merged into Phase 2 with Windows (coarse granularity; same IBleAdapter interface)
 - [Phase 01]: BleMonitor migrated to ILogger<BleMonitor>+ILoggerFactory; static BLE classes use Debug.WriteLine interim (Phase 4 concern per CONTEXT.md)
 - [Phase 01]: StateChanged raised outside SyncLock in all monitors to prevent deadlock if handler reads DeviceState
+- [Phase 01-infrastructure]: Added Serilog.Extensions.Hosting for CreateBootstrapLogger() — not included in original plan
+- [Phase 01-infrastructure]: ILoggerFactory passed to MonitorOrchestrator for transient monitor logger creation
+- [Phase 01-infrastructure]: Microsoft.Extensions.DependencyInjection upgraded 8.0.1 to 10.0.0 for Serilog version compat
 
 ### Pending Todos
 
@@ -80,6 +84,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-30T11:24:01.319Z
-Stopped at: Completed 01-02-PLAN.md
+Last session: 2026-03-30T11:27:26.052Z
+Stopped at: Completed 01-infrastructure-01-01-PLAN.md
 Resume file: None

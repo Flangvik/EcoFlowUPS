@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 4 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Serilog migration (big-bang Logger.Log replacement, bootstrap logger, ILogger<T> injection)
+- [x] 01-01-PLAN.md — Serilog migration (big-bang Logger.Log replacement, bootstrap logger, ILogger<T> injection)
 - [x] 01-02-PLAN.md — DeviceState contracts: ConnectionStatus enums, thread-safety lock, bare catch fixes
 - [ ] 01-03-PLAN.md — Connection FSM + Polly: Stateless state machine in both monitors, CONN-05 bug fix
 - [ ] 01-04-PLAN.md — State badge bar UI: DeviceViewModel props, staleness timer, DashboardView insertion

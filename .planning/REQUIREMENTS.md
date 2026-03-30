@@ -15,7 +15,7 @@
 
 ### Infrastructure
 
-- [ ] **INFRA-01**: Replace static Logger with Serilog structured logging (file sink with rotation, log levels)
+- [x] **INFRA-01**: Replace static Logger with Serilog structured logging (file sink with rotation, log levels)
 - [x] **INFRA-02**: DeviceState mutations are thread-safe (concurrent BLE + MQTT writes don't corrupt state)
 - [x] **INFRA-03**: Bare catch blocks replaced with proper error handling — no silent swallowing of exceptions
 - [ ] **INFRA-04**: Connection state machine (Stateless or equivalent) replaces raw while-loop retry in BleMonitor and MqttMonitor
@@ -47,7 +47,7 @@
 
 - [ ] **UX-01**: Dashboard layout has clear visual hierarchy — power state prominent, details scannable
 - [ ] **UX-02**: Error states are always surfaced — no blank screens, no silent failures
-- [ ] **UX-03**: Verbose debug logging removed from production (BleTransport frame-level logs)
+- [x] **UX-03**: Verbose debug logging removed from production (BleTransport frame-level logs)
 
 ## v2 Requirements
 
@@ -88,7 +88,7 @@
 | CONN-03 | Phase 2 | Pending |
 | CONN-04 | Phase 2 | Pending |
 | CONN-05 | Phase 1 | Pending |
-| INFRA-01 | Phase 1 | Pending |
+| INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 1 | Complete |
 | INFRA-03 | Phase 1 | Complete |
 | INFRA-04 | Phase 1 | Pending |
@@ -108,7 +108,7 @@
 | SET-04 | Phase 4 | Pending |
 | UX-01 | Phase 4 | Pending |
 | UX-02 | Phase 1 | Pending |
-| UX-03 | Phase 1 | Pending |
+| UX-03 | Phase 1 | Complete |
 
 ---
 *Defined: 2026-03-30*
