@@ -29,7 +29,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Switching connection mode (Cloud/BLE/Auto) restarts the monitor and shows clear feedback during the transition
   4. Error states are surfaced in the UI — no blank screens or silent failures anywhere; structured log files are written to disk with rotation
   5. Verbose debug frame-level logs are absent from the production build; DeviceState mutations from concurrent BLE and MQTT threads do not corrupt state
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Serilog migration (big-bang Logger.Log replacement, bootstrap logger, ILogger<T> injection)
+- [ ] 01-02-PLAN.md — DeviceState contracts: ConnectionStatus enums, thread-safety lock, bare catch fixes
+- [ ] 01-03-PLAN.md — Connection FSM + Polly: Stateless state machine in both monitors, CONN-05 bug fix
+- [ ] 01-04-PLAN.md — State badge bar UI: DeviceViewModel props, staleness timer, DashboardView insertion
 
 ### Phase 2: Cross-Platform BLE
 **Goal**: BLE monitoring works on Windows and Linux using platform-native adapters, with the same resilient reconnect lifecycle already established in Phase 1
@@ -73,7 +79,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Infrastructure | 0/TBD | Not started | - |
+| 1. Infrastructure | 0/4 | Not started | - |
 | 2. Cross-Platform BLE | 0/TBD | Not started | - |
 | 3. History & Persistence | 0/TBD | Not started | - |
 | 4. Rules, Settings & Polish | 0/TBD | Not started | - |
