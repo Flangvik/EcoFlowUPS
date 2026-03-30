@@ -3,13 +3,15 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using EcoFlowMonitor.Config;
-using EcoFlowMonitor.Logging;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Client.Ble;
 using EcoFlowMonitor.Services;
 using EcoFlowMonitor.ViewModels;
 using EcoFlowMonitor.Views;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using Serilog;
+using Serilog.Events;
 
 namespace EcoFlowMonitor;
 
@@ -25,10 +27,30 @@ public partial class App : Application
     public override void OnFrameworkInitializationCompleted()
     {
         var config = ConfigManager.Load();
-        Logger.Init(string.IsNullOrWhiteSpace(config.General.ErrorLogPath) ? null : config.General.ErrorLogPath);
+
+        var logPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            "EcoFlowMonitor", "logs", "app-.log");
+
+        Log.Logger = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
+            .MinimumLevel.Override("MQTTnet", LogEventLevel.Warning)
+            .Enrich.FromLogContext()
+            .WriteTo.File(
+                logPath,
+                rollingInterval: RollingInterval.Day,
+                fileSizeLimitBytes: 10 * 1024 * 1024,
+                retainedFileCountLimit: 3,
+                rollOnFileSizeLimit: true,
+                buffered: true,
+                outputTemplate: "[{Timestamp:HH:mm:ss.fff} {Level:u3}] {SourceContext}: {Message:lj}{NewLine}{Exception}"
+            )
+            .CreateLogger();
 
         var services = new ServiceCollection();
         services.AddSingleton(config);
+        services.AddLogging(lb => lb.ClearProviders().AddSerilog(dispose: true));
         PlatformServiceFactory.Register(services);
         services.AddSingleton<MonitorOrchestrator>();
         services.AddSingleton<NavigationService>();
