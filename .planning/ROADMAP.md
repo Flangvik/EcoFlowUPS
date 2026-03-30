@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Infrastructure** - Replace the logging stack, add thread safety, wire the connection state machine, and remove silent failures throughout (completed 2026-03-30)
 - [ ] **Phase 2: Cross-Platform BLE** - Add Windows (WinRT) and Linux (BlueZ) BLE adapters against the existing IBleAdapter interface
-- [ ] **Phase 3: History & Persistence** - Persist telemetry to SQLite and surface it as in-app historical charts and an event log
+- [x] **Phase 3: History & Persistence** - Persist telemetry to SQLite and surface it as in-app historical charts and an event log (completed 2026-03-30)
 - [ ] **Phase 4: Rules, Settings & Polish** - Complete the rules engine with webhook/script/notification actions, wire the settings page, and finish UX polish
 
 ## Phase Details
@@ -60,8 +60,8 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — SQLite persistence layer: IHistoryStore/IEventStore contracts, SqliteHistoryStore/SqliteEventStore with WAL + Channel<T> debounce
-- [ ] 03-02-PLAN.md — MonitorOrchestrator integration: EnqueueSnapshot on every tick, EnqueueEvent on power transitions, DI registration
-- [ ] 03-03-PLAN.md — HistoryView UI: HistoryViewModel with time range selector, LiveChartsCore 2.0.0 charts, event log, dashboard navigation wiring
+- [x] 03-02-PLAN.md — MonitorOrchestrator integration: EnqueueSnapshot on every tick, EnqueueEvent on power transitions, DI registration
+- [x] 03-03-PLAN.md — HistoryView UI: HistoryViewModel with time range selector, LiveChartsCore 2.0.0 charts, event log, dashboard navigation wiring
 
 ### Phase 4: Rules, Settings & Polish
 **Goal**: Users can configure rules that fire real actions on power events, manage all app settings through a working settings page, and read the dashboard at a glance
@@ -85,5 +85,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Infrastructure | 4/4 | Complete   | 2026-03-30 |
 | 2. Cross-Platform BLE | 0/TBD | Not started | - |
-| 3. History & Persistence | 0/3 | Not started | - |
+| 3. History & Persistence | 3/3 | Complete   | 2026-03-30 |
 | 4. Rules, Settings & Polish | 0/TBD | Not started | - |
