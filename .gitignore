@@ -1,5 +1,7 @@
 .env
+# User config with credentials (not planning config)
 config.json
+!.planning/config.json
 __pycache__/
 *.pyc
 .pytest_cache/
