@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 02-cross-platform-ble-02-01-PLAN.md
-last_updated: "2026-03-30T12:35:22.538Z"
+status: verifying
+stopped_at: Completed 02-cross-platform-ble-02-02-PLAN.md
+last_updated: "2026-03-30T12:36:04.073Z"
 last_activity: 2026-03-30
 progress:
   total_phases: 4
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 6
-  completed_plans: 5
+  completed_plans: 6
   percent: 0
 ---
 
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-03-30)
 
 Phase: 02 (Cross-Platform BLE) — EXECUTING
 Plan: 2 of 2
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-infrastructure P03 | 427 | 2 tasks | 3 files |
 | Phase 01-infrastructure P04 | 380 | 3 tasks | 3 files |
 | Phase 02-cross-platform-ble P01 | 4 | 2 tasks | 3 files |
+| Phase 02-cross-platform-ble P02 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,9 @@ Recent decisions affecting current work:
 - [Phase 01-infrastructure]: Stat cards wrapped in single Grid with DataOpacity binding for uniform dimming (D-04)
 - [Phase 02-cross-platform-ble]: EnableWindowsTargeting=true required for WinRT cross-compilation on macOS (NETSDK1100)
 - [Phase 02-cross-platform-ble]: GattCharacteristic.ValueChanged is TypedEventHandler<GattCharacteristic,GattValueChangedEventArgs> not EventHandler — requires using Windows.Foundation
+- [Phase 02-cross-platform-ble]: Linux.Bluetooth 5.67.1 uses concrete Adapter type for DeviceFound event — IAdapter1 interface does not expose events
+- [Phase 02-cross-platform-ble]: BlueZGattConnection: GetServiceAsync/GetCharacteristicAsync take string UUID (not Guid) — convert with .ToString()
+- [Phase 02-cross-platform-ble]: BlueZPermissionCheck skips check on non-Linux platforms (OperatingSystem.IsLinux()) — safe to include in cross-platform builds
 
 ### Pending Todos
 
@@ -94,6 +98,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-30T12:35:22.536Z
-Stopped at: Completed 02-cross-platform-ble-02-01-PLAN.md
+Last session: 2026-03-30T12:36:04.070Z
+Stopped at: Completed 02-cross-platform-ble-02-02-PLAN.md
 Resume file: None

@@ -10,7 +10,7 @@
 - [x] **CONN-01**: App shows visible connection state per device (scanning, connecting, authenticated, streaming, disconnected, retrying) with retry attempt counter
 - [x] **CONN-02**: App displays last-known data with staleness indicator ("Last update: 5m ago") when device is disconnected
 - [x] **CONN-03**: BLE connection works on Windows via WinRT Bluetooth LE APIs
-- [ ] **CONN-04**: BLE connection works on Linux via BlueZ D-Bus (Linux.Bluetooth)
+- [x] **CONN-04**: BLE connection works on Linux via BlueZ D-Bus (Linux.Bluetooth)
 - [x] **CONN-05**: Connection mode toggle (Cloud/BLE/Auto) provides clear feedback during transitions and actually restarts the monitor
 
 ### Infrastructure
@@ -86,7 +86,7 @@
 | CONN-01 | Phase 1 | Complete |
 | CONN-02 | Phase 1 | Complete |
 | CONN-03 | Phase 2 | Complete |
-| CONN-04 | Phase 2 | Pending |
+| CONN-04 | Phase 2 | Complete |
 | CONN-05 | Phase 1 | Complete |
 | INFRA-01 | Phase 1 | Complete |
 | INFRA-02 | Phase 1 | Complete |
