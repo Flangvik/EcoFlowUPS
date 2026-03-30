@@ -2,6 +2,7 @@ using EcoFlowMonitor.Actions;
 using EcoFlowMonitor.Client;
 using EcoFlowMonitor.Client.Ble;
 using EcoFlowMonitor.Config;
+using EcoFlowMonitor.History;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Platform;
 using EcoFlowMonitor.State;
@@ -17,17 +18,21 @@ public class MonitorOrchestrator : IDisposable
     private readonly IBleAdapter _bleAdapter;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<MonitorOrchestrator> _logger;
+    private readonly IHistoryStore _historyStore;
+    private readonly IEventStore _eventStore;
     private readonly List<MonitorEntry> _monitors = new();
 
     public event EventHandler<DeviceStateEventArgs>? DeviceUpdated;
 
-    public MonitorOrchestrator(AppConfig config, INotificationService notifications, IPowerActionService power, IScriptRunnerService scripts, IBleAdapter bleAdapter, ILoggerFactory loggerFactory)
+    public MonitorOrchestrator(AppConfig config, INotificationService notifications, IPowerActionService power, IScriptRunnerService scripts, IBleAdapter bleAdapter, ILoggerFactory loggerFactory, IHistoryStore historyStore, IEventStore eventStore)
     {
         _config = config;
         _actionRunner = new ActionRunner(notifications, power, scripts);
         _bleAdapter = bleAdapter;
         _loggerFactory = loggerFactory;
         _logger = loggerFactory.CreateLogger<MonitorOrchestrator>();
+        _historyStore = historyStore;
+        _eventStore = eventStore;
     }
 
     public IReadOnlyList<DeviceState> GetLiveStates() => _monitors.Select(m => m.State).ToList();
@@ -189,6 +194,8 @@ public class MonitorOrchestrator : IDisposable
 
     private void OnStateChanged(MonitorEntry entry, StateChangedEventArgs e)
     {
+        var source = entry.Monitor is BleMonitor ? "BLE" : "Cloud";
+
         var toFire = TriggerEvaluator.Evaluate(entry.Device, e.State, e.PreviousPower);
         foreach (var rule in toFire)
         {
@@ -199,9 +206,48 @@ public class MonitorOrchestrator : IDisposable
             }
             TriggerEvaluator.RecordFired(rule, e.State);
         }
-        var source = entry.Monitor is BleMonitor ? "BLE" : "Cloud";
+
+        // -- History persistence (DATA-01) --
+        var snapshot = new TelemetrySnapshot(
+            DeviceSn:   entry.Device.SerialNumber ?? "",
+            Ts:         DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            BatteryPct: e.State.Bms?.BatteryPct,
+            TotalInW:   e.State.Display?.TotalInW,
+            TotalOutW:  e.State.Display?.TotalOutW,
+            PowerState: e.State.Power.Status.ToString(),
+            RemainMin:  e.State.Bms?.RemainMin,
+            TempC:      e.State.Bms?.TempC,
+            Source:     source);
+        _historyStore.EnqueueSnapshot(snapshot);
+
+        // -- Event log (DATA-03): only on power state transitions --
+        if (e.PreviousPower != e.State.Power.Status)
+        {
+            var eventType = DeriveEventType(e.PreviousPower, e.State.Power.Status);
+            if (eventType != null)
+            {
+                var detail = $"Battery {e.State.Bms?.BatteryPct:F0}%";
+                _eventStore.EnqueueEvent(new PowerEvent(
+                    DeviceSn:  entry.Device.SerialNumber ?? "",
+                    Ts:        DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+                    EventType: eventType,
+                    Detail:    detail,
+                    Source:    source));
+            }
+        }
+
         DeviceUpdated?.Invoke(this, new DeviceStateEventArgs(e.State, source));
     }
+
+    private static string? DeriveEventType(PowerStatus previous, PowerStatus current) =>
+        (previous, current) switch
+        {
+            (PowerStatus.Charging, PowerStatus.PowerLost) => "PowerLost",
+            (PowerStatus.Idle,     PowerStatus.PowerLost) => "PowerLost",
+            (PowerStatus.PowerLost, PowerStatus.Charging) => "PowerRestored",
+            (PowerStatus.PowerLost, PowerStatus.Idle)     => "PowerRestored",
+            _ => null
+        };
 
     /// <summary>
     /// Stop the current monitor for a device and restart with its current ConnectionMode.
