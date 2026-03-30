@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using EcoFlowMonitor.Client;
 using EcoFlowMonitor.Models;
 using EcoFlowMonitor.State;
 
@@ -8,6 +10,7 @@ namespace EcoFlowMonitor.ViewModels;
 public partial class DeviceViewModel : ViewModelBase
 {
     private readonly DeviceConfig _device;
+    private DateTime? _lastKnownDataReceived;
 
     public string DisplayName => _device.DisplayName;
     public string? SerialNumber => _device.SerialNumber;
@@ -18,6 +21,16 @@ public partial class DeviceViewModel : ViewModelBase
     [ObservableProperty] private string _activeSource = "";
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private ConnectionMode _connectionMode;
+
+    // ── Connection state bar (CONN-01, CONN-02, UX-02) ─────────────────────
+    [ObservableProperty] private string _connectionStateText = "Disconnected";
+    [ObservableProperty] private string _retryInfoText = "";       // "attempt 3, next in 8s" — D-02
+    [ObservableProperty] private bool _isStale;
+    [ObservableProperty] private string _stalenessText = "";       // "Last update: 2m ago" — D-04
+    [ObservableProperty] private double _dataOpacity = 1.0;       // 1.0 = fresh, 0.5 = stale — D-04
+    [ObservableProperty] private string _errorMessage = "";        // "BLE connection failed" — D-07
+    [ObservableProperty] private string _errorDetail = "";         // expandable detail — D-08
+    [ObservableProperty] private bool _hasError;
 
     // ── Core stats ──
     [ObservableProperty] private bool _isConnected;
@@ -67,6 +80,14 @@ public partial class DeviceViewModel : ViewModelBase
         _device = device;
         ConnectionMode = device.ConnectionMode;
         UpdateBadge();
+
+        // Staleness timer — fires every 10s to update IsStale, StalenessText, DataOpacity
+        var stalenessTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(10)
+        };
+        stalenessTimer.Tick += (_, _) => UpdateStaleness();
+        stalenessTimer.Start();
     }
 
     public void UpdateBadge()
@@ -96,6 +117,11 @@ public partial class DeviceViewModel : ViewModelBase
 
     public void UpdateFromState(DeviceState state)
     {
+        UpdateConnectionState(state);
+
+        if (state.LastDataReceived.HasValue)
+            _lastKnownDataReceived = state.LastDataReceived;
+
         IsConnected = state.IsConnected;
         PowerStatus = state.Power.Status;
         LastUpdated = state.LastUpdated.ToString("HH:mm:ss");
@@ -178,6 +204,98 @@ public partial class DeviceViewModel : ViewModelBase
         PowerHistory.Add(new PowerHistoryPoint(state.LastUpdated, TotalInW, TotalOutW));
         if (PowerHistory.Count > 60)
             PowerHistory.RemoveAt(0);
+    }
+
+    private void UpdateConnectionState(DeviceState state)
+    {
+        // Map ConnectionStatus enum to display string (CONN-01)
+        ConnectionStateText = state.ConnectionStatus switch
+        {
+            ConnectionStatus.Idle          => "Idle",
+            ConnectionStatus.Scanning      => "Scanning...",
+            ConnectionStatus.Connecting    => "Connecting...",
+            ConnectionStatus.Authenticating => "Authenticating...",
+            ConnectionStatus.Streaming     => "Connected",
+            ConnectionStatus.Retrying      => "Reconnecting...",
+            ConnectionStatus.Error         => "Error",
+            ConnectionStatus.Disconnected  => "Disconnected",
+            _                              => "Unknown"
+        };
+
+        // Retry info: "attempt 3, next in 8s" — D-02
+        RetryInfoText = state.ConnectionStatus == ConnectionStatus.Retrying && state.RetryAttempt > 0
+            ? $"(attempt {state.RetryAttempt}, next in {(int)state.RetryDelay.TotalSeconds}s)"
+            : "";
+
+        // Error surfacing — D-07, D-08
+        HasError = state.ConnectionStatus == ConnectionStatus.Error && !string.IsNullOrEmpty(state.LastErrorMessage);
+        ErrorMessage = state.LastErrorMessage ?? "";
+        ErrorDetail = state.LastErrorDetail ?? "";
+    }
+
+    private void UpdateStaleness()
+    {
+        // Must run on UI thread — DispatcherTimer guarantees this
+        if (!IsConnected)
+        {
+            var lastReceived = _lastKnownDataReceived;
+            if (lastReceived == null)
+            {
+                IsStale = false;
+                StalenessText = "";
+                DataOpacity = 1.0;
+                return;
+            }
+
+            var age = DateTime.Now - lastReceived.Value;
+
+            // D-05: stale after 30 seconds
+            IsStale = age.TotalSeconds >= 30;
+
+            if (IsStale)
+            {
+                // Format staleness: "Last update: 2m ago", "Last update: 5m ago", etc.
+                var minutes = (int)age.TotalMinutes;
+                var seconds = (int)age.TotalSeconds;
+                StalenessText = minutes >= 1
+                    ? $"Last update: {minutes}m ago"
+                    : $"Last update: {seconds}s ago";
+
+                // D-04: dim to 50% opacity when stale
+                DataOpacity = 0.5;
+
+                // D-06: clear values after 5 minutes
+                if (age.TotalMinutes >= 5)
+                {
+                    ClearStaleValues();
+                }
+            }
+            else
+            {
+                StalenessText = "";
+                DataOpacity = 1.0;
+            }
+        }
+        else
+        {
+            // Connected and fresh
+            IsStale = false;
+            StalenessText = "";
+            DataOpacity = 1.0;
+        }
+    }
+
+    private void ClearStaleValues()
+    {
+        // Show "--" or "0" for all stats after 5 minutes offline
+        BatteryPct = 0;
+        TotalInW = 0;
+        TotalOutW = 0;
+        SolarW = 0;
+        RemainingTime = "--";
+        VoltageV = 0;
+        CurrentA = 0;
+        TempC = 0;
     }
 }
 
