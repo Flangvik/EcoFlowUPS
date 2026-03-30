@@ -6,6 +6,7 @@ using EcoFlowMonitor.Models;
 using EcoFlowMonitor.Services;
 using EcoFlowMonitor.State;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace EcoFlowMonitor.ViewModels;
 
@@ -14,17 +15,19 @@ public partial class DashboardViewModel : ViewModelBase
     private readonly NavigationService _navigation;
     private readonly MonitorOrchestrator _orchestrator;
     private readonly AppConfig _config;
+    private readonly ILogger<DashboardViewModel> _logger;
 
     [ObservableProperty] private DeviceViewModel? _selectedDevice;
     [ObservableProperty] private bool _isRefreshing;
 
     public ObservableCollection<DeviceViewModel> Devices { get; } = new();
 
-    public DashboardViewModel(NavigationService navigation, MonitorOrchestrator orchestrator, AppConfig config)
+    public DashboardViewModel(NavigationService navigation, MonitorOrchestrator orchestrator, AppConfig config, ILogger<DashboardViewModel> logger)
     {
         _navigation = navigation;
         _orchestrator = orchestrator;
         _config = config;
+        _logger = logger;
 
         _orchestrator.DeviceUpdated += OnDeviceUpdated;
 
@@ -104,11 +107,21 @@ public partial class DashboardViewModel : ViewModelBase
     private async Task CycleConnectionModeAsync()
     {
         if (SelectedDevice == null) return;
+        var previousMode = SelectedDevice.Config.ConnectionMode; // snapshot for rollback
         SelectedDevice.CycleConnectionMode();
-        ConfigManager.Save(_config);
-
-        // Restart the monitor with the new mode
-        await _orchestrator.RestartDeviceAsync(SelectedDevice.Config);
         SelectedDevice.StatusText = $"Switching to {SelectedDevice.ConnectionBadge}...";
+        try
+        {
+            await _orchestrator.RestartDeviceAsync(SelectedDevice.Config);
+            ConfigManager.Save(_config); // only save if restart succeeded (CONN-05)
+        }
+        catch (Exception ex)
+        {
+            // Revert to previous mode on failure
+            SelectedDevice.Config.ConnectionMode = previousMode;
+            SelectedDevice.UpdateBadge(); // refresh badge to reflect rollback
+            SelectedDevice.StatusText = $"Switch failed: {ex.Message}";
+            _logger.LogWarning(ex, "CycleConnectionMode failed, reverted to {Mode}", previousMode);
+        }
     }
 }
