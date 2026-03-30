@@ -104,6 +104,15 @@ public partial class DashboardViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void ShowErrorDetail()
+    {
+        if (SelectedDevice == null || !SelectedDevice.HasError) return;
+        // D-08: show friendly message + expandable technical detail
+        // For now, update StatusText to show the error detail (Phase 4 adds a proper dialog)
+        SelectedDevice.StatusText = SelectedDevice.ErrorDetail;
+    }
+
+    [RelayCommand]
     private async Task CycleConnectionModeAsync()
     {
         if (SelectedDevice == null) return;

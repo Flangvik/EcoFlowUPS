@@ -120,6 +120,42 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- STATE BAR — CONN-01, CONN-02, UX-02 — D-01 full-width bar between hero and power flow -->
+                    <Border Background="{StaticResource SurfaceCard}"
+                            CornerRadius="6" Padding="12,8" Margin="0,4,0,4">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8">
+                                <!-- Connection status dot — reuses existing GlowStatusIndicator -->
+                                <controls:GlowStatusIndicator
+                                    IsActive="{Binding IsConnected}"
+                                    Width="8" Height="8" VerticalAlignment="Center" />
+                                <!-- State text: "Connected", "Reconnecting...", "Error", etc. — CONN-01 -->
+                                <TextBlock Text="{Binding ConnectionStateText}"
+                                           Classes="BodySmall" VerticalAlignment="Center" />
+                                <!-- Retry info: "attempt 3, next in 8s" — D-02 -->
+                                <TextBlock Text="{Binding RetryInfoText}"
+                                           Classes="BodySmall"
+                                           Foreground="{StaticResource TextMuted}"
+                                           IsVisible="{Binding RetryInfoText,
+                                               Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                <!-- Staleness badge: "Last update: 2m ago" — D-04, CONN-02 -->
+                                <TextBlock Text="{Binding StalenessText}"
+                                           Classes="BodySmall"
+                                           Foreground="{StaticResource TextMuted}"
+                                           IsVisible="{Binding IsStale}" />
+                            </StackPanel>
+                            <!-- Expandable error details button — D-08, visible only when HasError=true -->
+                            <Button Grid.Column="1"
+                                    Classes="Ghost"
+                                    Content="Details"
+                                    Padding="6,2"
+                                    FontSize="10"
+                                    IsVisible="{Binding HasError}"
+                                    Command="{Binding DataContext.ShowErrorDetailCommand,
+                                        RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </Grid>
+                    </Border>
+
                     <!-- POWER FLOW DIAGRAM -->
                     <controls:PowerFlowDiagram Height="180"
                                                 InputW="{Binding TotalInW}"
@@ -128,44 +164,49 @@
                                                 BatteryPct="{Binding BatteryPct}"
                                                 Status="{Binding PowerStatus}" />
 
-                    <!-- STATS: Power -->
-                    <UniformGrid Columns="5" Margin="0,8,0,0">
-                        <controls:StatCard Label="INPUT" Value="{Binding TotalInW}" Unit="W"
-                                           ValueColor="{Binding TotalInW, Converter={x:Static converters:WattColorConverter.InstanceGreen}}" />
-                        <controls:StatCard Label="SOLAR" Value="{Binding SolarW}" Unit="W"
-                                           ValueColor="{Binding SolarW, Converter={x:Static converters:WattColorConverter.InstanceGold}}" />
-                        <controls:StatCard Label="OUTPUT" Value="{Binding TotalOutW}" Unit="W"
-                                           ValueColor="{Binding TotalOutW, Converter={x:Static converters:WattColorConverter.InstanceOrange}}" />
-                        <controls:StatCard Label="DISCHARGE" StringValue="{Binding RemainingTime}" />
-                        <controls:StatCard Label="CHARGE" StringValue="{Binding ChargeTime}" />
-                    </UniformGrid>
+                    <!-- Stat cards — dims to 50% when stale (D-04) -->
+                    <Grid Opacity="{Binding DataOpacity}">
+                        <StackPanel Spacing="0">
+                            <!-- STATS: Power -->
+                            <UniformGrid Columns="5" Margin="0,8,0,0">
+                                <controls:StatCard Label="INPUT" Value="{Binding TotalInW}" Unit="W"
+                                                   ValueColor="{Binding TotalInW, Converter={x:Static converters:WattColorConverter.InstanceGreen}}" />
+                                <controls:StatCard Label="SOLAR" Value="{Binding SolarW}" Unit="W"
+                                                   ValueColor="{Binding SolarW, Converter={x:Static converters:WattColorConverter.InstanceGold}}" />
+                                <controls:StatCard Label="OUTPUT" Value="{Binding TotalOutW}" Unit="W"
+                                                   ValueColor="{Binding TotalOutW, Converter={x:Static converters:WattColorConverter.InstanceOrange}}" />
+                                <controls:StatCard Label="DISCHARGE" StringValue="{Binding RemainingTime}" />
+                                <controls:StatCard Label="CHARGE" StringValue="{Binding ChargeTime}" />
+                            </UniformGrid>
 
-                    <!-- STATS: Battery -->
-                    <UniformGrid Columns="5">
-                        <controls:StatCard Label="VOLTAGE" Value="{Binding VoltageV}" Unit="V" Format="F2" />
-                        <controls:StatCard Label="CURRENT" Value="{Binding CurrentA}" Unit="A" Format="F2" />
-                        <controls:StatCard Label="TEMP" Value="{Binding TempC}" Unit="&#xB0;C" Format="F1" />
-                        <controls:StatCard Label="CYCLES" Value="{Binding Cycles}" />
-                        <controls:StatCard Label="HEALTH" Value="{Binding SohPct}" Unit="%" />
-                    </UniformGrid>
+                            <!-- STATS: Battery -->
+                            <UniformGrid Columns="5">
+                                <controls:StatCard Label="VOLTAGE" Value="{Binding VoltageV}" Unit="V" Format="F2" />
+                                <controls:StatCard Label="CURRENT" Value="{Binding CurrentA}" Unit="A" Format="F2" />
+                                <controls:StatCard Label="TEMP" Value="{Binding TempC}" Unit="&#xB0;C" Format="F1" />
+                                <controls:StatCard Label="CYCLES" Value="{Binding Cycles}" />
+                                <controls:StatCard Label="HEALTH" Value="{Binding SohPct}" Unit="%" />
+                            </UniformGrid>
 
-                    <!-- STATS: System -->
-                    <UniformGrid Columns="5">
-                        <controls:StatCard Label="AC FREQ" Value="{Binding AcFreqHz}" Unit="Hz" />
-                        <controls:StatCard Label="USB OUT" Value="{Binding UsbOutW}" Unit="W" />
-                        <controls:StatCard Label="MAX CHG" Value="{Binding MaxChgSoc}" Unit="%" />
-                        <controls:StatCard Label="FAN" StringValue="{Binding FanLevel, Converter={x:Static converters:FanLevelConverter.Instance}}" />
-                        <controls:StatCard Label="BATTS" StringValue="{Binding BattsConnected, StringFormat='{}{0}'}" />
-                    </UniformGrid>
+                            <!-- STATS: System -->
+                            <UniformGrid Columns="5">
+                                <controls:StatCard Label="AC FREQ" Value="{Binding AcFreqHz}" Unit="Hz" />
+                                <controls:StatCard Label="USB OUT" Value="{Binding UsbOutW}" Unit="W" />
+                                <controls:StatCard Label="MAX CHG" Value="{Binding MaxChgSoc}" Unit="%" />
+                                <controls:StatCard Label="FAN" StringValue="{Binding FanLevel, Converter={x:Static converters:FanLevelConverter.Instance}}" />
+                                <controls:StatCard Label="BATTS" StringValue="{Binding BattsConnected, StringFormat='{}{0}'}" />
+                            </UniformGrid>
 
-                    <!-- STATS: Capacity & Energy -->
-                    <UniformGrid Columns="5">
-                        <controls:StatCard Label="DESIGN" Value="{Binding DesignCapMah}" Unit="mAh" />
-                        <controls:StatCard Label="REMAIN" Value="{Binding RemainCapMah}" Unit="mAh" />
-                        <controls:StatCard Label="CELL &#x394;mV" Value="{Binding CellSpreadMv}" Unit="mV" />
-                        <controls:StatCard Label="TOT CHG" Value="{Binding AccuChgWh}" Unit="Wh" />
-                        <controls:StatCard Label="TOT DSG" Value="{Binding AccuDsgWh}" Unit="Wh" />
-                    </UniformGrid>
+                            <!-- STATS: Capacity & Energy -->
+                            <UniformGrid Columns="5">
+                                <controls:StatCard Label="DESIGN" Value="{Binding DesignCapMah}" Unit="mAh" />
+                                <controls:StatCard Label="REMAIN" Value="{Binding RemainCapMah}" Unit="mAh" />
+                                <controls:StatCard Label="CELL &#x394;mV" Value="{Binding CellSpreadMv}" Unit="mV" />
+                                <controls:StatCard Label="TOT CHG" Value="{Binding AccuChgWh}" Unit="Wh" />
+                                <controls:StatCard Label="TOT DSG" Value="{Binding AccuDsgWh}" Unit="Wh" />
+                            </UniformGrid>
+                        </StackPanel>
+                    </Grid>
 
                     <!-- CELL VOLTAGES PANEL -->
                     <Border Classes="Card" Padding="16" IsVisible="{Binding CellVoltages.Count}">
