@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-03-30T10:03:40.978Z"
-last_activity: 2026-03-30 — Roadmap created, 20/20 v1 requirements mapped across 4 phases
+status: executing
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-03-30T11:24:01.322Z"
+last_activity: 2026-03-30
 progress:
   total_phases: 4
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 4
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-30)
 
 **Core value:** Reliable, real-time power monitoring that never silently loses connection
-**Current focus:** Phase 1 — Infrastructure
+**Current focus:** Phase 01 — infrastructure
 
 ## Current Position
 
-Phase: 1 of 4 (Infrastructure)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-03-30 — Roadmap created, 20/20 v1 requirements mapped across 4 phases
+Phase: 01 (infrastructure) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-03-30
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-infrastructure P02 | 602 | 2 tasks | 10 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ Recent decisions affecting current work:
 - [Init]: Serilog + Stateless + Polly chosen for Phase 1 (see research/SUMMARY.md)
 - [Init]: EF Core rejected for history layer — raw Dapper on Microsoft.Data.Sqlite (time-series performance)
 - [Init]: Linux BLE merged into Phase 2 with Windows (coarse granularity; same IBleAdapter interface)
+- [Phase 01]: BleMonitor migrated to ILogger<BleMonitor>+ILoggerFactory; static BLE classes use Debug.WriteLine interim (Phase 4 concern per CONTEXT.md)
+- [Phase 01]: StateChanged raised outside SyncLock in all monitors to prevent deadlock if handler reads DeviceState
 
 ### Pending Todos
 
@@ -77,6 +80,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-30T10:03:40.977Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-infrastructure/01-CONTEXT.md
+Last session: 2026-03-30T11:24:01.319Z
+Stopped at: Completed 01-02-PLAN.md
+Resume file: None
