@@ -91,6 +91,15 @@ public partial class DashboardViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenHistory()
+    {
+        var historyVm = App.Services!.GetRequiredService<HistoryViewModel>();
+        if (SelectedDevice?.SerialNumber != null)
+            historyVm.SetDevice(SelectedDevice.SerialNumber);
+        _navigation.NavigateTo(historyVm);
+    }
+
+    [RelayCommand]
     private void ScanBle()
     {
         var scanVm = App.Services!.GetRequiredService<BleScanViewModel>();

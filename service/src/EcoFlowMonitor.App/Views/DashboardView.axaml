@@ -20,6 +20,8 @@
                                 IsEnabled="{Binding !IsRefreshing}" Padding="8,6" FontSize="12" />
                         <Button Classes="Ghost" Content="Settings" Command="{Binding OpenSettingsCommand}"
                                 Padding="8,6" FontSize="12" />
+                        <Button Classes="Ghost" Content="History" Command="{Binding OpenHistoryCommand}"
+                                Padding="8,6" FontSize="12" />
                     </StackPanel>
                     <Button Classes="Accent" Content="BLE Scan" Command="{Binding ScanBleCommand}"
                             HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"

@@ -60,6 +60,7 @@ public partial class App : Application
         services.AddTransient<SettingsViewModel>();
         services.AddSingleton<BleScanner>();
         services.AddTransient<BleScanViewModel>();
+        services.AddTransient<HistoryViewModel>();
 
         Services = services.BuildServiceProvider();
 

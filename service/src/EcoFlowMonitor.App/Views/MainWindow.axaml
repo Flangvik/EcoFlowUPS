@@ -26,6 +26,9 @@
         <DataTemplate DataType="vm:BleScanViewModel">
             <views:BleScanView />
         </DataTemplate>
+        <DataTemplate DataType="vm:HistoryViewModel">
+            <views:HistoryView />
+        </DataTemplate>
     </Window.DataTemplates>
 
     <ContentControl Content="{Binding CurrentPage}" />
