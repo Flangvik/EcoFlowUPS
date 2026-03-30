@@ -27,7 +27,7 @@
                 </StackPanel>
 
                 <!-- Device list -->
-                <StackPanel Margin="0,16,0,0">
+                <StackPanel Margin="0,40,0,0">
                     <TextBlock Text="MY DEVICES" Classes="CaptionUpper" Margin="16,0,0,12" />
 
                     <ListBox ItemsSource="{Binding Devices}"
