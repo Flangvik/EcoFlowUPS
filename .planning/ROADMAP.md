@@ -59,7 +59,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — SQLite persistence layer: IHistoryStore/IEventStore contracts, SqliteHistoryStore/SqliteEventStore with WAL + Channel<T> debounce
+- [x] 03-01-PLAN.md — SQLite persistence layer: IHistoryStore/IEventStore contracts, SqliteHistoryStore/SqliteEventStore with WAL + Channel<T> debounce
 - [ ] 03-02-PLAN.md — MonitorOrchestrator integration: EnqueueSnapshot on every tick, EnqueueEvent on power transitions, DI registration
 - [ ] 03-03-PLAN.md — HistoryView UI: HistoryViewModel with time range selector, LiveChartsCore 2.0.0 charts, event log, dashboard navigation wiring
 

@@ -22,10 +22,10 @@
 
 ### Data & History
 
-- [ ] **DATA-01**: Telemetry snapshots persist to SQLite (battery %, voltage, power in/out, temp per device, sampled every 10-30s)
+- [x] **DATA-01**: Telemetry snapshots persist to SQLite (battery %, voltage, power in/out, temp per device, sampled every 10-30s)
 - [ ] **DATA-02**: Dashboard shows historical charts with hourly/daily/weekly time range selector
 - [ ] **DATA-03**: Event log records timestamped power events (power lost, restored, low battery, connection changes) with persistent storage
-- [ ] **DATA-04**: SQLite uses WAL mode and handles concurrent read/write without "database is locked" errors
+- [x] **DATA-04**: SQLite uses WAL mode and handles concurrent read/write without "database is locked" errors
 
 ### Rules & Automation
 
@@ -92,10 +92,10 @@
 | INFRA-02 | Phase 1 | Complete |
 | INFRA-03 | Phase 1 | Complete |
 | INFRA-04 | Phase 1 | Complete |
-| DATA-01 | Phase 3 | Pending |
+| DATA-01 | Phase 3 | Complete |
 | DATA-02 | Phase 3 | Pending |
 | DATA-03 | Phase 3 | Pending |
-| DATA-04 | Phase 3 | Pending |
+| DATA-04 | Phase 3 | Complete |
 | RULE-01 | Phase 4 | Pending |
 | RULE-02 | Phase 4 | Pending |
 | RULE-03 | Phase 4 | Pending |
