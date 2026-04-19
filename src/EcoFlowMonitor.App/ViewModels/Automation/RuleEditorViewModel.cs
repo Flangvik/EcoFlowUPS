@@ -327,6 +327,14 @@ public partial class ActionRowViewModel : ViewModelBase
 {
     [ObservableProperty] private ActionType _type = ActionType.Notification;
 
+    /// <summary>Exposed on the row itself so the ComboBox can bind to the row's
+    /// own DataContext — avoids the $parent[ItemsControl] lookup that can race
+    /// against SelectedItem binding inside DataTemplates in Avalonia 11.</summary>
+    public static ActionType[] AllTypes { get; } = Enum.GetValues<ActionType>();
+
+    /// <summary>Same reasoning as <see cref="AllTypes"/> — exposed on the row.</summary>
+    public static RunCommandShell[] AllShellKinds { get; } = Enum.GetValues<RunCommandShell>();
+
     public bool IsNotification => Type == ActionType.Notification;
     public bool IsScript       => Type == ActionType.RunScript;
     public bool IsLog          => Type == ActionType.WriteLog;

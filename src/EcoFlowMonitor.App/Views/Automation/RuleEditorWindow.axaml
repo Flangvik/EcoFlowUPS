@@ -140,7 +140,7 @@
                         Padding="10" Margin="0,4">
                   <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="200,*,Auto">
-                      <ComboBox ItemsSource="{Binding $parent[ItemsControl].DataContext.AllActionTypes}"
+                      <ComboBox ItemsSource="{Binding AllTypes}"
                                 SelectedItem="{Binding Type}" />
                       <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="BodySmall"
                                  Text="{Binding Type}" />
@@ -184,7 +184,7 @@
                       <TextBox Text="{Binding CommandMacOS}" Watermark="macOS command (e.g. /usr/local/bin/shut.sh)" />
                       <TextBox Text="{Binding CommandLinux}" Watermark="Linux command (e.g. /usr/local/bin/shut.sh)" />
                       <Grid ColumnDefinitions="120,*,Auto,120">
-                        <ComboBox ItemsSource="{Binding $parent[ItemsControl].DataContext.AllShellKinds}"
+                        <ComboBox ItemsSource="{Binding AllShellKinds}"
                                   SelectedItem="{Binding Shell}" />
                         <TextBox Grid.Column="1" Text="{Binding WorkingDirectory}" Watermark="Working directory (optional)" />
                         <TextBlock Grid.Column="2" Text="Timeout ms:" VerticalAlignment="Center" />
