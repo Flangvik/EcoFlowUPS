@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>EcoFlow BLE Flow — how the app talks to a station over Bluetooth</title>
+<meta name="viewport" content="width=1920, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0d0e;
+    --bg-2: #0f1315;
+    --ink: #e6eef2;
+    --ink-dim: #8a9ca4;
+    --ink-faint: #4a585e;
+    --rule: #1a2227;
+    --rule-2: #253038;
+    --ble:   oklch(0.82 0.13 225);
+    --crypt: oklch(0.78 0.15 295);
+    --warn:  oklch(0.72 0.18 25);
+    --card: #0e1518;
+  }
+  html[data-theme="light"] {
+    --bg: #f2f1ec;
+    --bg-2: #e9e7df;
+    --ink: #121618;
+    --ink-dim: #4d595f;
+    --ink-faint: #9ca6ac;
+    --rule: #d6d2c6;
+    --rule-2: #c2bdae;
+    --ble:   oklch(0.45 0.15 230);
+    --crypt: oklch(0.48 0.17 295);
+    --warn:  oklch(0.52 0.18 25);
+    --card: #e9e7df;
+  }
+  html, body { margin:0; padding:0; background: var(--bg); color: var(--ink); font-family: 'Inter', system-ui, sans-serif; overflow: hidden; }
+  body { width: 100vw; height: 100vh; display: grid; place-items: center; }
+  .stage { width: 1920px; height: 1080px; position: relative; background: var(--bg); transform-origin: center center; overflow: hidden; }
+  .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  .chrome-top, .chrome-bot {
+    position: absolute; left: 56px; right: 56px;
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 13px; color: var(--ink-dim);
+  }
+  .chrome-top { top: 40px; }
+  .chrome-bot { bottom: 36px; }
+  .title-block { position: absolute; left: 56px; top: 78px; right: 480px; }
+  .title-block h1 { margin: 0; font-size: 46px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.04; }
+  .title-block .sub { margin-top: 12px; color: var(--ink-dim); font-size: 16px; max-width: 900px; line-height: 1.4; }
+  .title-accent   { color: var(--ble); }
+  .title-accent-2 { color: var(--crypt); }
+
+  .legend {
+    position: absolute; top: 90px; right: 56px;
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-end;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--ink-dim);
+  }
+  .legend-row { display: flex; align-items: center; gap: 10px; }
+  .legend-dash { width: 42px; height: 0; border-top: 2px solid currentColor; }
+  .legend-dash.dashed { border-top-style: dashed; }
+  .legend .ble   { color: var(--ble); }
+  .legend .crypt { color: var(--crypt); }
+
+  .canvas { position: absolute; inset: 0; }
+
+  /* node */
+  .node {
+    position: absolute;
+    border: 1px solid var(--rule-2);
+    background: var(--card);
+    border-radius: 3px;
+    padding: 14px 16px;
+    box-sizing: border-box;
+  }
+  .node .node-head {
+    display: flex; align-items: center; justify-content: space-between;
+    font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+  .node .node-title { font-size: 18px; font-weight: 600; letter-spacing: -0.01em; }
+  .node .node-sub { font-size: 11px; color: var(--ink-dim); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+  .node .node-icon { width: 20px; height: 20px; color: var(--ink-dim); display: inline-flex; align-items:center; justify-content:center; }
+  .node.ble-accent { border-color: color-mix(in oklch, var(--ble) 45%, var(--rule-2)); }
+  .node.ble-accent .node-title { color: var(--ble); }
+  .node-tag {
+    display: inline-block; padding: 2px 7px; border: 1px solid var(--rule-2); border-radius: 2px;
+    font-size: 10px; color: var(--ink-dim); font-family: 'JetBrains Mono', monospace;
+  }
+
+  .grid-bg {
+    position: absolute; inset: 0;
+    background-image: radial-gradient(circle, var(--rule) 1px, transparent 1px);
+    background-size: 40px 40px;
+    opacity: 0.5; pointer-events: none;
+  }
+
+  .wires { position: absolute; inset: 0; pointer-events: none; }
+  .wires path, .wires line { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+  .wires .ble-path   { stroke: var(--ble);   stroke-width: 1.8; }
+  .wires .crypt-path { stroke: var(--crypt); stroke-width: 1.8; }
+  .wires .neutral-path { stroke: var(--ink-dim); stroke-width: 1.6; }
+  .wires .dashed { stroke-dasharray: 5 5; }
+
+  .packet {
+    position: absolute; width: 10px; height: 10px; border-radius: 50%;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 0 8px currentColor);
+  }
+  .packet.ble   { background: var(--ble);   color: var(--ble); }
+  .packet.crypt { background: var(--crypt); color: var(--crypt); }
+
+  .wire-label {
+    position: absolute; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-dim);
+    background: var(--bg);
+    padding: 3px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+  .wire-label.ble   { color: var(--ble); }
+  .wire-label.crypt { color: var(--crypt); }
+  .wire-num { display: inline-block; margin-right: 8px; color: var(--ink-faint); font-weight: 600; }
+
+  .phase-band {
+    position: absolute; left: 56px; right: 56px;
+    border-top: 1px solid var(--rule);
+  }
+  .phase-band .phase-label {
+    position: absolute; left: 16px; top: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; letter-spacing: 0.25em;
+    text-transform: uppercase;
+  }
+  .phase-band.ble   .phase-label { color: var(--ble); }
+  .phase-band.crypt .phase-label { color: var(--crypt); }
+
+  .fsm-strip {
+    position: absolute;
+    border: 1px solid var(--rule-2);
+    border-radius: 3px;
+    background: var(--card);
+    padding: 10px 18px;
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--ink-dim);
+  }
+  .fsm-strip b { color: var(--ink); font-weight: 600; }
+  .fsm-strip .fsm-arrow { color: var(--ink-faint); }
+
+  .detail-hide-on-simple .detail-only { display: none !important; }
+
+  /* Tweaks */
+  .tweaks {
+    position: fixed; right: 20px; bottom: 20px; z-index: 50;
+    background: rgba(14,21,24,0.94); border: 1px solid var(--rule-2);
+    border-radius: 6px; padding: 14px 16px 16px; color: var(--ink);
+    font-size: 12px; width: 260px; backdrop-filter: blur(8px);
+    display: none;
+  }
+  html[data-theme="light"] .tweaks { background: rgba(233,231,223,0.96); }
+  .tweaks.open { display: block; }
+  .tweaks h4 { margin: 0 0 12px; font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-dim); font-weight: 600; }
+  .tweaks .row { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+  .tweaks .row label { font-size: 11px; color: var(--ink-dim); letter-spacing: 0.05em; }
+  .tweaks .seg { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid var(--rule-2); border-radius: 3px; overflow: hidden; }
+  .tweaks .seg button { background: transparent; border: 0; color: var(--ink-dim); padding: 8px 4px; font-size: 11px; cursor: pointer; font-family: inherit; border-right: 1px solid var(--rule-2); }
+  .tweaks .seg button:last-child { border-right: 0; }
+  .tweaks .seg button.on { background: var(--ink); color: var(--bg); }
+  .tweaks input[type=range] { width: 100%; accent-color: var(--ble); }
+  .tweaks .seg.two { grid-template-columns: 1fr 1fr; }
+
+  .brand-mark { display: inline-flex; align-items: center; gap: 10px; font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--ink-dim); letter-spacing: 0.08em; }
+  .brand-mark .dot { width: 8px; height: 8px; background: var(--ble); border-radius: 50%; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="grid-bg"></div>
+
+  <div class="chrome-top">
+    <span class="brand-mark"><span class="dot"></span><span>ECOFLOW · BLUETOOTH LE</span></span>
+    <span class="mono">fig. 02 — local handshake · no servers</span>
+  </div>
+
+  <div class="title-block">
+    <h1>How the app pairs over <span class="title-accent">BLE</span>, does an <span class="title-accent-2">ECDH handshake</span>, and decrypts the stream.</h1>
+    <p class="sub">No EcoFlow servers are involved. The host radio scans, connects to the station's GATT service, negotiates an AES‑128 session key over SECP160r1, authenticates with <span class="mono">MD5(userId + sn)</span>, and starts decoding encrypted 0x5A5A frames in place.</p>
+  </div>
+
+  <div class="legend">
+    <div class="legend-row"><span class="ble">BLE · GATT / adv</span><span class="legend-dash ble"></span></div>
+    <div class="legend-row"><span class="crypt">ECDH + AES-CBC</span><span class="legend-dash crypt"></span></div>
+    <div class="legend-row" style="opacity:0.7"><span>reply</span><span class="legend-dash dashed" style="color:var(--ink-dim)"></span></div>
+  </div>
+
+  <div class="canvas" id="canvas"></div>
+
+  <div class="chrome-bot">
+    <span class="mono">Based on BleMonitor.cs · BleTransport.cs · BleCryptoModern.cs · BlePacketParser.cs</span>
+    <span class="mono">SECP160r1 · AES-128-CBC · CRC16-Modbus · 0x5A5A / 0xAA</span>
+  </div>
+</div>
+
+<div class="tweaks" id="tweaks">
+  <h4>Tweaks</h4>
+  <div class="row">
+    <label>Theme</label>
+    <div class="seg two" id="themeSeg">
+      <button data-theme="dark" class="on">Dark</button>
+      <button data-theme="light">Light</button>
+    </div>
+  </div>
+  <div class="row">
+    <label>Animation speed</label>
+    <input type="range" id="speedRange" min="0.25" max="3" step="0.25" value="1" />
+    <div class="mono" style="color:var(--ink-faint); font-size:10px;" id="speedLabel">1.00×</div>
+  </div>
+  <div class="row">
+    <label>Detail level</label>
+    <div class="seg" id="detailSeg">
+      <button data-detail="simple">Simple</button>
+      <button data-detail="normal" class="on">Normal</button>
+      <button data-detail="deep">Deep</button>
+    </div>
+  </div>
+</div>
+
+<script src="ecoflow-ble-flow.js?v=1"></script>
+</body>
+</html>
