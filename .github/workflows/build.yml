@@ -31,48 +31,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pin Xcode 26.2 on macOS runners. Xcode 26.3 on macos-latest ships with a
+      # stub MacOSX.sdk that fails `xcodebuild -sdk <path> -find install_name_tool`
+      # (see actions/runner-images#13743). 26.2 has the same macOS SDK per the
+      # dotnet/macios 26.2.10217 release notes, and it's installed fully on the
+      # runner image.
+      - name: Setup Xcode 26.2 (macOS only)
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      # Walk newest→oldest. Reject any Xcode whose MacOSX SDK is shipped as
-      # an empty/stub directory (common on partially-installed newer Xcode
-      # betas on the runner image). Validation probes with `-sdk <absolute
-      # path>` — the same form the Xamarin.Shared.Sdk.targets uses at build
-      # time — because `-sdk macosx` can fall through to a different Xcode's
-      # tools and pass a sanity check that the real build then fails.
-      - name: Select newest usable Xcode
+      # `dotnet workload restore` reads the csproj/global.json and picks the
+      # matching workload version. `dotnet workload install macos` has a CDN
+      # cache bug (dotnet/maui#34295) that pulls a newer manifest requiring
+      # Xcode 26.3, so we avoid it.
+      - name: Restore workloads (macOS only)
         if: runner.os == 'macOS'
-        run: |
-          set -euo pipefail
-          echo "Available Xcodes:"; ls -d /Applications/Xcode_*.app
-          CANDIDATES=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -rV)
-          for xc in $CANDIDATES; do
-            echo "Trying $xc..."
-            sudo xcode-select -s "$xc/Contents/Developer"
-            sudo xcodebuild -license accept >/dev/null 2>&1 || true
-            sudo xcodebuild -runFirstLaunch >/dev/null 2>&1 || true
-            SDK_DIR="$xc/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
-            if [[ ! -f "$SDK_DIR/SDKSettings.plist" ]]; then
-              echo "  rejected: SDKSettings.plist missing under $SDK_DIR (SDK not populated)"
-              continue
-            fi
-            if ! xcodebuild -sdk "$SDK_DIR" -find install_name_tool >/dev/null 2>&1; then
-              echo "  rejected: xcodebuild -sdk $SDK_DIR cannot find install_name_tool"
-              continue
-            fi
-            echo "Selected: $xc"
-            echo "  SDK: $SDK_DIR"
-            xcodebuild -version
-            exit 0
-          done
-          echo "ERROR: no usable Xcode found on this runner" >&2
-          exit 1
-
-      - name: Install macOS workload
-        if: runner.os == 'macOS'
-        run: dotnet workload install macos
+        run: dotnet workload restore src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj
 
       - name: Cache NuGet
         uses: actions/cache@v4
@@ -81,10 +62,6 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # Single dotnet build does restore+build atomically. Separating them and
-      # passing --no-restore has bitten us: Grpc.Tools resolves native protoc
-      # via properties set during restore and sometimes comes up empty when
-      # restore ran in a different invocation.
       - name: Build
         run: >-
           dotnet build src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj

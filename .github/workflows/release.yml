@@ -33,48 +33,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Pin Xcode 26.2 on macOS runners. Xcode 26.3 on macos-latest ships a
+      # stub MacOSX.sdk directory (actions/runner-images#13743), and the .NET
+      # macOS workload 26.2.10233 says the 26.2 and 26.3 SDKs are identical,
+      # so 26.2 is the correct target. maxim-lobanov/setup-xcode handles the
+      # xcode-select dance cleanly.
+      - name: Setup Xcode 26.2 (macOS only)
+        if: runner.os == 'macOS'
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '26.2'
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      # Walk newest→oldest. Reject any Xcode whose MacOSX SDK is shipped as
-      # an empty/stub directory (common on partially-installed newer Xcode
-      # betas on the runner image). Validation probes with `-sdk <absolute
-      # path>` — the same form the Xamarin.Shared.Sdk.targets uses at build
-      # time — because `-sdk macosx` can fall through to a different Xcode's
-      # tools and pass a sanity check that the real build then fails.
-      - name: Select newest usable Xcode
+      # `workload restore` reads the csproj and installs the workload version
+      # the project actually needs, avoiding the `install macos` CDN-cache bug
+      # (dotnet/maui#34295) that fetches a newer manifest requiring Xcode 26.3.
+      - name: Restore workloads (macOS only)
         if: runner.os == 'macOS'
-        run: |
-          set -euo pipefail
-          echo "Available Xcodes:"; ls -d /Applications/Xcode_*.app
-          CANDIDATES=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -rV)
-          for xc in $CANDIDATES; do
-            echo "Trying $xc..."
-            sudo xcode-select -s "$xc/Contents/Developer"
-            sudo xcodebuild -license accept >/dev/null 2>&1 || true
-            sudo xcodebuild -runFirstLaunch >/dev/null 2>&1 || true
-            SDK_DIR="$xc/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
-            if [[ ! -f "$SDK_DIR/SDKSettings.plist" ]]; then
-              echo "  rejected: SDKSettings.plist missing under $SDK_DIR (SDK not populated)"
-              continue
-            fi
-            if ! xcodebuild -sdk "$SDK_DIR" -find install_name_tool >/dev/null 2>&1; then
-              echo "  rejected: xcodebuild -sdk $SDK_DIR cannot find install_name_tool"
-              continue
-            fi
-            echo "Selected: $xc"
-            echo "  SDK: $SDK_DIR"
-            xcodebuild -version
-            exit 0
-          done
-          echo "ERROR: no usable Xcode found on this runner" >&2
-          exit 1
-
-      - name: Install macOS workload
-        if: runner.os == 'macOS'
-        run: dotnet workload install macos
+        run: dotnet workload restore src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj
 
       - name: Cache NuGet
         uses: actions/cache@v4
@@ -122,10 +102,6 @@ jobs:
           # directly at src/EcoFlowMonitor.App/bin/Release/<tfm>/<rid>/EcoFlowMonitor.App.app.
           # ApplicationDisplayVersion → CFBundleShortVersionString, ApplicationVersion → CFBundleVersion (must be numeric).
           # LinkMode=None disables trimming (required: we reflection-load platform assemblies).
-          # Registrar=dynamic lets the build succeed when the runner's Xcode doesn't ship
-          # the exact macOS SDK the .NET macOS workload would prefer. Error MM0179
-          # explicitly lists it as a mitigation and it's safe for our code paths (no
-          # static-registrar-only attributes in use).
           dotnet publish src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj \
             -c Release \
             -f ${{ matrix.tfm }} \
@@ -136,8 +112,7 @@ jobs:
             -p:ApplicationVersion=${{ github.run_number }} \
             -p:DebugType=embedded \
             -p:CreatePackage=false \
-            -p:LinkMode=None \
-            -p:Registrar=dynamic
+            -p:LinkMode=None
 
       - name: Re-sign .app bundle ad-hoc (fixes dyld Invalid Page crash on macOS 15+)
         if: runner.os == 'macOS'
