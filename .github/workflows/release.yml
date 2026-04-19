@@ -38,11 +38,12 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # GitHub runner images pin an older Xcode as the default; the macos
-      # workload rejects it. Walk newest→oldest and pick the first one where
-      # `xcodebuild -sdk macosx -find install_name_tool` succeeds — that's
-      # the exact invocation the .NET macOS SDK does internally, so if it
-      # works here it works for the build too.
+      # Walk newest→oldest. Reject any Xcode whose MacOSX SDK is shipped as
+      # an empty/stub directory (common on partially-installed newer Xcode
+      # betas on the runner image). Validation probes with `-sdk <absolute
+      # path>` — the same form the Xamarin.Shared.Sdk.targets uses at build
+      # time — because `-sdk macosx` can fall through to a different Xcode's
+      # tools and pass a sanity check that the real build then fails.
       - name: Select newest usable Xcode
         if: runner.os == 'macOS'
         run: |
@@ -55,16 +56,18 @@ jobs:
             sudo xcodebuild -license accept >/dev/null 2>&1 || true
             sudo xcodebuild -runFirstLaunch >/dev/null 2>&1 || true
             SDK_DIR="$xc/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
-            if [[ ! -d "$SDK_DIR" ]]; then
-              echo "  rejected: MacOSX SDK dir missing"
+            if [[ ! -f "$SDK_DIR/SDKSettings.plist" ]]; then
+              echo "  rejected: SDKSettings.plist missing under $SDK_DIR (SDK not populated)"
               continue
             fi
-            if xcodebuild -sdk macosx -find install_name_tool >/dev/null 2>&1; then
-              echo "Selected: $xc"
-              xcodebuild -version
-              exit 0
+            if ! xcodebuild -sdk "$SDK_DIR" -find install_name_tool >/dev/null 2>&1; then
+              echo "  rejected: xcodebuild -sdk $SDK_DIR cannot find install_name_tool"
+              continue
             fi
-            echo "  rejected: xcodebuild cannot find install_name_tool"
+            echo "Selected: $xc"
+            echo "  SDK: $SDK_DIR"
+            xcodebuild -version
+            exit 0
           done
           echo "ERROR: no usable Xcode found on this runner" >&2
           exit 1
