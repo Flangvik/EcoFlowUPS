@@ -25,7 +25,7 @@ jobs:
             tfm: net10.0
           - os: windows-latest
             rid: win-x64
-            tfm: net10.0
+            tfm: net10.0-windows10.0.19041.0
           - os: macos-latest
             rid: osx-arm64
             tfm: net10.0-macos
@@ -41,17 +41,34 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # GitHub runner images pin an older Xcode as the default; pick the
-      # newest installed so the macos workload's SDK check passes.
-      - name: Select newest Xcode
+      # GitHub runner images pin an older Xcode as the default; the macos
+      # workload rejects it. Walk from the newest installed Xcode down until
+      # we find one with a working MacOSX SDK + install_name_tool — some
+      # newer previews on the image are partially installed.
+      - name: Select newest usable Xcode
         if: runner.os == 'macOS'
         run: |
           set -euo pipefail
-          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
           echo "Available Xcodes:"; ls -d /Applications/Xcode_*.app
-          echo "Selecting: $LATEST"
-          sudo xcode-select -s "$LATEST/Contents/Developer"
-          xcodebuild -version
+          CANDIDATES=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -rV)
+          for xc in $CANDIDATES; do
+            echo "Trying $xc..."
+            sudo xcode-select -s "$xc/Contents/Developer"
+            sudo xcodebuild -license accept >/dev/null 2>&1 || true
+            sudo xcodebuild -runFirstLaunch >/dev/null 2>&1 || true
+            SDK=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)
+            TOOL=$(xcrun --sdk macosx --find install_name_tool 2>/dev/null || true)
+            if [[ -n "$SDK" && -d "$SDK" && -n "$TOOL" && -x "$TOOL" ]]; then
+              echo "Selected: $xc"
+              echo "  SDK:  $SDK"
+              echo "  tool: $TOOL"
+              xcodebuild -version
+              exit 0
+            fi
+            echo "  rejected ($xc is incomplete)"
+          done
+          echo "ERROR: no usable Xcode found on this runner" >&2
+          exit 1
 
       - name: Install macOS workload
         if: runner.os == 'macOS'

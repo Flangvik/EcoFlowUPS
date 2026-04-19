@@ -3,12 +3,20 @@
     <OutputType>Exe</OutputType>
     <OutputType Condition="!$(TargetFramework.Contains('macos'))">WinExe</OutputType>
     <!--
-      Multi-target only on macOS hosts. The net10.0-macos TFM requires the
-      `macos` workload (Xcode + iOS/macOS SDK), so including it unconditionally
-      breaks Windows/Linux CI runners even when they only ask for `-f net10.0`.
+      OS-specific TFMs so each host only resolves projects it can actually build:
+        - Linux host:   net10.0 (references Platform.Linux, also net10.0)
+        - macOS host:   net10.0 + net10.0-macos (references Platform.macOS; the
+                        -macos TFM produces a proper .app bundle)
+        - Windows host: net10.0-windows10.0.19041.0 (Platform.Windows's TFM —
+                        required to consume WinRT from the referenced project)
+
+      Mixing TFMs across host boundaries at the CLI via `-p:TargetFrameworks=…`
+      leaks to child projects through MSBuild and breaks Core/Platform.*, so
+      we gate per-host here instead.
     -->
     <TargetFrameworks>net10.0</TargetFrameworks>
     <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('OSX'))">net10.0;net10.0-macos</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('Windows'))">net10.0-windows10.0.19041.0</TargetFrameworks>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>EcoFlowMonitor</RootNamespace>

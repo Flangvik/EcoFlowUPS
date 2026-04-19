@@ -49,7 +49,7 @@ if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$Tfm        = "net10.0"
+$Tfm        = "net10.0-windows10.0.19041.0"
 $AppCsproj  = "src\EcoFlowMonitor.App\EcoFlowMonitor.App.csproj"
 $OutDir     = "publish\$Rid"
 
