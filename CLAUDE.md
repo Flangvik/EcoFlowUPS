@@ -97,6 +97,7 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 | `IStartupService` | Auto-start on login | Windows, macOS, Linux implementations |
 | `IScriptRunnerService` | Execute scripts | Windows, macOS, Linux implementations |
 | `IElevationService` | Admin/root elevation | Windows, macOS, Linux implementations |
+| `IShellExecutor` | Run a shell command, capture stdout/stderr/exit, enforce timeout | Single `ShellExecutor` in Core: resolves per-OS shell at runtime via `OperatingSystem.IsXxx`. Used by the rules-engine `RunCommand` action. |
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->

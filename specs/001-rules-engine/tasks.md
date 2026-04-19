@@ -189,13 +189,13 @@ new code follows the structure chart in `plan.md`.
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T120 [P] Run `./scripts/build-macos.sh 0.0.0-rules-engine-smoke` on the dev Mac and exercise the quickstart walkthrough (Phase 1 of quickstart.md) end-to-end. File any surprises as separate issues — do not extend this feature.
-- [ ] T121 [P] Run `dotnet test src/EcoFlowMonitor.Core.Tests/` on a clean checkout. Every test from T030–T054, T070–T074, T113 must pass.
-- [ ] T122 Update `CLAUDE.md` Platform Abstraction table to include `IShellExecutor` (row for purpose + per-OS implementation file). The `update-agent-context.sh` step already added the language entry; this is a manual content touch-up.
-- [ ] T123 [P] Update `README.md` to mention the Automation view in the Features list and link to `specs/001-rules-engine/quickstart.md` as the user-facing walkthrough.
-- [ ] T124 [P] Update `docs/ecoflow-cloud-flow.md` and `docs/ecoflow-ble-flow.md` with a short "Rule firing hook" section pointing out where `MonitorOrchestrator.OnStateChanged` feeds the rules engine (for future protocol-layer contributors who touch that path).
+- [X] T120 [P] Run `./scripts/build-macos.sh 0.0.0-rules-engine-smoke` on the dev Mac and exercise the quickstart walkthrough (Phase 1 of quickstart.md) end-to-end. File any surprises as separate issues — do not extend this feature.
+- [X] T121 [P] Run `dotnet test src/EcoFlowMonitor.Core.Tests/` on a clean checkout. Every test from T030–T054, T070–T074, T113 must pass.
+- [X] T122 Update `CLAUDE.md` Platform Abstraction table to include `IShellExecutor` (row for purpose + per-OS implementation file). The `update-agent-context.sh` step already added the language entry; this is a manual content touch-up.
+- [X] T123 [P] Update `README.md` to mention the Automation view in the Features list and link to `specs/001-rules-engine/quickstart.md` as the user-facing walkthrough.
+- [X] T124 [P] Update `docs/ecoflow-cloud-flow.md` and `docs/ecoflow-ble-flow.md` with a short "Rule firing hook" section pointing out where `MonitorOrchestrator.OnStateChanged` feeds the rules engine (for future protocol-layer contributors who touch that path).
 - [ ] T125 Run the CI matrix locally via `gh workflow run build.yml` once main is updated, confirm all three OS jobs pass with the new test project.
-- [ ] T126 Write a short migration note (2–3 paragraphs) in `specs/001-rules-engine/migration.md` describing how users with existing `config.json` rules are affected: zero action required; new fields default to sensible values; older files continue to parse via the polymorphic base. Part of Principle V.
+- [X] T126 Write a short migration note (2–3 paragraphs) in `specs/001-rules-engine/migration.md` describing how users with existing `config.json` rules are affected: zero action required; new fields default to sensible values; older files continue to parse via the polymorphic base. Part of Principle V.
 
 ---
 

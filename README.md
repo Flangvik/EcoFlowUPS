@@ -53,7 +53,10 @@ EcoFlowUPS/
 - **BLE channel:** ECDH SECP160r1 handshake → AES-128-CBC session → `pd335_sys.DisplayPropertyUpload` protobuf
 - **MQTT channel:** Cloud broker at `mqtt.ecoflow.com:8883` using credentials fetched via the REST login flow
 - **History:** SQLite-backed time series of every telemetry snapshot and power event, visible in the History view
-- **Rules:** triggers (`PowerLost`, `PowerRestored`, `BatteryBelow`, `TimeRemainingBelow`) → actions (shutdown, hibernate, sleep, run script, OS notification, write log line)
+- **Automation:** full rules engine — in-app editor, cross-platform. See [`specs/001-rules-engine/quickstart.md`](specs/001-rules-engine/quickstart.md) for the five-minute walkthrough.
+  - **Triggers:** `PowerLost`, `PowerRestored`, `BatteryBelow`, `BatteryAbove`, `TimeRemainingBelow`, `TempAbove`, `TempBelow`, `AcPlugged`, `AcUnplugged`, `InputWattsBelow`, `OutputWattsAbove`, `DeviceOffline`, `DeviceOnline`
+  - **Actions:** `Shutdown`, `Hibernate`, `Sleep`, `RunScript`, `RunCommand` (per-OS command strings with `{device}`/`{battery}`/`{temp_c}`/etc. template variables), `Webhook` (HTTP POST/PUT with user headers, configurable retries + timeout), `Notification`, `WriteLog`
+  - **Audit log:** every rule firing and per-action outcome persisted in the existing `history.db`, viewable via the **History** button on the dashboard Rules card. 30-day retention by default.
 
 **Build a local release:**
 

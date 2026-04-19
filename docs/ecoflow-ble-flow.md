@@ -174,6 +174,8 @@ For each notification `BleTransport.OnNotification(data)` runs under `_bufferLoc
 
 Identical to the cloud path: `MonitorOrchestrator.OnStateChanged(entry, e)` runs trigger evaluation, action dispatch, history persistence, event-log writes, and re-raises `DeviceUpdated` with `Source = "BLE"`. The UI marshal happens in `DashboardViewModel.OnDeviceUpdated` via `Dispatcher.UIThread.Post(...)`.
 
+**Rule-firing hook:** feature 001 wires the orchestrator's action-dispatch into the async `ActionRunner` (bounded channel + concurrency cap) and persists every action attempt to the `rule_firings` / `rule_firing_actions` tables in `history.db`. See `docs/ecoflow-cloud-flow.md` § Phase 6 for the details — the path is channel-agnostic (BLE or cloud), which is why it lives in a single place.
+
 ---
 
 ## Phase 8 — Disconnect / Reconnect

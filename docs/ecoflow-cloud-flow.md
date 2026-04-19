@@ -166,8 +166,8 @@ On first decoded message, FSM fires `Authenticated` → state `Streaming`.
 
 `MonitorOrchestrator.OnStateChanged`:
 
-1. **Trigger eval** — `TriggerEvaluator.Evaluate(device, state, previousPower)` returns rules to fire (edge: PowerLost / PowerRestored; level w/ 5-min cooldown: BatteryBelow / TimeRemainingBelow).
-2. **Action dispatch** — for each fired rule, `ActionRunner.Run(action, ...)` → `RunScript | Shutdown | Hibernate | Sleep | Notification | WriteLog` via platform services.
+1. **Trigger eval** — `TriggerEvaluator.Evaluate(device, state, previousPower)` returns rules to fire. Trigger set expanded in feature 001 (see `specs/001-rules-engine/`): edge triggers (`PowerLost`, `PowerRestored`, `AcPlugged`, `AcUnplugged`, `DeviceOffline`, `DeviceOnline`) and level triggers with cooldown (`BatteryBelow`, `BatteryAbove`, `TimeRemainingBelow`, `TempAbove`, `TempBelow`, `InputWattsBelow`, `OutputWattsAbove`).
+2. **Action dispatch** — `MonitorOrchestrator.QueueFiring` hands each rule to the async `ActionRunner`. The runner has a bounded channel (default capacity 256, drop-oldest on overflow) and a `SemaphoreSlim` (default 8) that caps concurrent action executions. Action types: `RunScript | Shutdown | Hibernate | Sleep | Notification | WriteLog | Webhook | RunCommand`. Webhook uses a shared `HttpClient`; `RunCommand` dispatches through `IShellExecutor`. Every action's outcome (success / failure / skipped / timeout / dropped) is appended to the `rule_firings` + `rule_firing_actions` audit tables in `history.db`.
 3. **History** — `IHistoryStore.EnqueueSnapshot(TelemetrySnapshot)` (SQLite).
 4. **Event log** — on power-status transition, `IEventStore.EnqueueEvent(PowerEvent)`.
 5. **UI event** — re-raise as `DeviceUpdated`. `DashboardViewModel.OnDeviceUpdated` marshals to UI via `Dispatcher.UIThread.Post()` and updates the `DeviceViewModel` observable properties.
