@@ -23,15 +23,19 @@ jobs:
           - os: ubuntu-latest
             rid: linux-x64
             tfm: net10.0
+            tfms: net10.0
           - os: windows-latest
             rid: win-x64
             tfm: net10.0
+            tfms: net10.0
           - os: macos-latest
             rid: osx-arm64
             tfm: net10.0-macos
+            tfms: net10.0-macos
           - os: macos-13
             rid: osx-x64
             tfm: net10.0-macos
+            tfms: net10.0-macos
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +44,18 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      # GitHub runner images pin an older Xcode as the default; pick the
+      # newest installed so the macos workload's SDK check passes.
+      - name: Select newest Xcode
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "Available Xcodes:"; ls -d /Applications/Xcode_*.app
+          echo "Selecting: $LATEST"
+          sudo xcode-select -s "$LATEST/Contents/Developer"
+          xcodebuild -version
 
       - name: Install macOS workload
         if: runner.os == 'macOS'
@@ -71,11 +87,15 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # -p:TargetFrameworks=net10.0 overrides the csproj's multi-TFM list
+          # so MSBuild never tries to restore/build the net10.0-macos TFM
+          # (which would need the macos workload that these runners don't have).
           dotnet publish src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj \
             -c Release \
             -f ${{ matrix.tfm }} \
             -r ${{ matrix.rid }} \
             --self-contained true \
+            -p:TargetFrameworks=${{ matrix.tfms }} \
             -p:Version=${{ steps.ver.outputs.version }} \
             -p:PublishSingleFile=true \
             -p:IncludeNativeLibrariesForSelfExtract=true \

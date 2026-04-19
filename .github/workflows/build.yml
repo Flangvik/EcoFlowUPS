@@ -21,12 +21,15 @@ jobs:
           - os: ubuntu-latest
             rid: linux-x64
             tfm: net10.0
+            tfms: net10.0
           - os: windows-latest
             rid: win-x64
             tfm: net10.0
+            tfms: net10.0
           - os: macos-latest
             rid: osx-arm64
             tfm: net10.0-macos
+            tfms: net10.0-macos
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -35,6 +38,19 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+
+      # The .NET macOS workload version on the runner image is tied to a specific
+      # Xcode. macos-latest may default to an older Xcode even when newer ones
+      # are pre-installed. Pick the highest-numbered Xcode available.
+      - name: Select newest Xcode
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          LATEST=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -V | tail -1)
+          echo "Available Xcodes:"; ls -d /Applications/Xcode_*.app
+          echo "Selecting: $LATEST"
+          sudo xcode-select -s "$LATEST/Contents/Developer"
+          xcodebuild -version
 
       - name: Install macOS workload
         if: runner.os == 'macOS'
@@ -47,8 +63,14 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      # -p:TargetFrameworks=<single> overrides the csproj's multi-TFM list for
+      # this invocation so non-macOS runners never evaluate the net10.0-macos
+      # TFM (which would demand the macos workload).
       - name: Restore
-        run: dotnet restore src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj -r ${{ matrix.rid }}
+        run: >-
+          dotnet restore src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj
+          -r ${{ matrix.rid }}
+          -p:TargetFrameworks=${{ matrix.tfms }}
 
       - name: Build
         run: >-
@@ -56,4 +78,5 @@ jobs:
           -c Release
           -f ${{ matrix.tfm }}
           -r ${{ matrix.rid }}
+          -p:TargetFrameworks=${{ matrix.tfms }}
           --no-restore
