@@ -29,9 +29,9 @@ new code follows the structure chart in `plan.md`.
 
 **Purpose**: Project scaffolding needed before any feature work.
 
-- [ ] T001 Create new xUnit test project at `src/EcoFlowMonitor.Core.Tests/EcoFlowMonitor.Core.Tests.csproj` targeting `net10.0`, with `PackageReference`s: `xunit 2.9.2`, `xunit.runner.visualstudio 2.8.2`, `FluentAssertions 6.12.x`, `Microsoft.Data.Sqlite 10.0.5`, `Microsoft.NET.Test.Sdk 17.11.x`. Add `<ProjectReference>` to `EcoFlowMonitor.Core`.
-- [ ] T002 Register `EcoFlowMonitor.Core.Tests` in `src/EcoFlowMonitor.sln` with `dotnet sln src/EcoFlowMonitor.sln add src/EcoFlowMonitor.Core.Tests/EcoFlowMonitor.Core.Tests.csproj`.
-- [ ] T003 [P] Verify `dotnet test src/EcoFlowMonitor.Core.Tests/` runs (empty, 0 tests) on all three OSes; CI `build.yml` already covers Core, no workflow change needed.
+- [X] T001 Create new xUnit test project at `src/EcoFlowMonitor.Core.Tests/EcoFlowMonitor.Core.Tests.csproj` targeting `net10.0`, with `PackageReference`s: `xunit 2.9.2`, `xunit.runner.visualstudio 2.8.2`, `FluentAssertions 6.12.x`, `Microsoft.Data.Sqlite 10.0.5`, `Microsoft.NET.Test.Sdk 17.11.x`. Add `<ProjectReference>` to `EcoFlowMonitor.Core`.
+- [X] T002 Register `EcoFlowMonitor.Core.Tests` in `src/EcoFlowMonitor.sln` with `dotnet sln src/EcoFlowMonitor.sln add src/EcoFlowMonitor.Core.Tests/EcoFlowMonitor.Core.Tests.csproj`.
+- [X] T003 [P] Verify `dotnet test src/EcoFlowMonitor.Core.Tests/` runs (empty, 0 tests) on all three OSes; CI `build.yml` already covers Core, no workflow change needed.
 
 ---
 
@@ -41,18 +41,18 @@ new code follows the structure chart in `plan.md`.
 
 **⚠️ CRITICAL**: No user-story work starts until this phase completes.
 
-- [ ] T010 Convert `src/EcoFlowMonitor.Core/Models/TriggerConfig.cs` to a polymorphic base class via `[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]` with `[JsonDerivedType]` attributes for the four existing variants (`PowerLost`, `PowerRestored`, `BatteryBelow`, `TimeRemainingBelow`). Keep existing JSON shape byte-identical for current `config.json` files (verify via round-trip test added in T041).
-- [ ] T011 Convert `src/EcoFlowMonitor.Core/Models/ActionConfig.cs` to a polymorphic base class with `[JsonDerivedType]` attributes for the six existing variants (`RunScript`, `Shutdown`, `Hibernate`, `Sleep`, `Notification`, `WriteLog`). Preserve current JSON shape.
-- [ ] T012 [P] Extend `src/EcoFlowMonitor.Core/Actions/TemplateExpander.cs` to support new variables `{temp_c}`, `{ac_plugged}`, `{charge_state}`, `{device_sn}`, and to emit `<unknown>` for every `null`/missing value (covers FR-009).
-- [ ] T013 [P] Create `src/EcoFlowMonitor.Core/Models/RuleFiring.cs` (record type per `data-model.md`: `Id, Ts, RuleId, RuleName, DeviceSn, TriggerType, TriggerValueJson, IsTest, Actions`) and `src/EcoFlowMonitor.Core/Models/RuleFiringAction.cs` (record: `Id, FiringId, Ordinal, ActionType, Outcome, DurationMs, ErrorText, DetailJson`).
-- [ ] T014 [P] Create `src/EcoFlowMonitor.Core/History/IRuleFiringStore.cs` with methods `Task AppendAsync(RuleFiring)`, `Task<IReadOnlyList<RuleFiring>> QueryAsync(string? deviceSn, string? ruleId, DateTime? since, int limit)`, `Task PruneOlderThanAsync(DateTime cutoffUtc)`.
-- [ ] T015 Create `src/EcoFlowMonitor.Core/History/SqliteRuleFiringStore.cs` implementing `IRuleFiringStore`. Execute the DDL from `specs/001-rules-engine/contracts/rule-firing-audit.sql` on first construction via `CREATE TABLE IF NOT EXISTS`. Reuse the existing `history.db` connection path from `SqliteHistoryStore`. Use `Microsoft.Data.Sqlite`.
+- [X] T010 Convert `src/EcoFlowMonitor.Core/Models/TriggerConfig.cs` to a polymorphic base class via `[JsonPolymorphic(TypeDiscriminatorPropertyName = "type")]` with `[JsonDerivedType]` attributes for the four existing variants (`PowerLost`, `PowerRestored`, `BatteryBelow`, `TimeRemainingBelow`). Keep existing JSON shape byte-identical for current `config.json` files (verify via round-trip test added in T041).
+- [X] T011 Convert `src/EcoFlowMonitor.Core/Models/ActionConfig.cs` to a polymorphic base class with `[JsonDerivedType]` attributes for the six existing variants (`RunScript`, `Shutdown`, `Hibernate`, `Sleep`, `Notification`, `WriteLog`). Preserve current JSON shape.
+- [X] T012 [P] Extend `src/EcoFlowMonitor.Core/Actions/TemplateExpander.cs` to support new variables `{temp_c}`, `{ac_plugged}`, `{charge_state}`, `{device_sn}`, and to emit `<unknown>` for every `null`/missing value (covers FR-009).
+- [X] T013 [P] Create `src/EcoFlowMonitor.Core/Models/RuleFiring.cs` (record type per `data-model.md`: `Id, Ts, RuleId, RuleName, DeviceSn, TriggerType, TriggerValueJson, IsTest, Actions`) and `src/EcoFlowMonitor.Core/Models/RuleFiringAction.cs` (record: `Id, FiringId, Ordinal, ActionType, Outcome, DurationMs, ErrorText, DetailJson`).
+- [X] T014 [P] Create `src/EcoFlowMonitor.Core/History/IRuleFiringStore.cs` with methods `Task AppendAsync(RuleFiring)`, `Task<IReadOnlyList<RuleFiring>> QueryAsync(string? deviceSn, string? ruleId, DateTime? since, int limit)`, `Task PruneOlderThanAsync(DateTime cutoffUtc)`.
+- [X] T015 Create `src/EcoFlowMonitor.Core/History/SqliteRuleFiringStore.cs` implementing `IRuleFiringStore`. Execute the DDL from `specs/001-rules-engine/contracts/rule-firing-audit.sql` on first construction via `CREATE TABLE IF NOT EXISTS`. Reuse the existing `history.db` connection path from `SqliteHistoryStore`. Use `Microsoft.Data.Sqlite`.
 - [ ] T016 Register `IRuleFiringStore` → `SqliteRuleFiringStore` as a singleton in `src/EcoFlowMonitor.App/App.axaml.cs` DI setup, alongside `IHistoryStore`.
 - [ ] T017 Add concurrency queue to `src/EcoFlowMonitor.Core/Actions/ActionRunner.cs`: private `Channel<QueuedAction>` (`BoundedChannelOptions { Capacity = 256, FullMode = DropOldest }`) + `SemaphoreSlim(8)` per plan R-004. Spawn a reader loop task on first enqueue. Expose `ConfigureConcurrency(int maxConcurrent, int queueCapacity)` for the Settings screen.
 - [ ] T018 Extend `ActionRunner` with a `Func<RuleFiringAction, Task>` hook so each action-attempt outcome is written to `IRuleFiringStore` regardless of action type; constitution Principle I forbids silent failures.
 - [ ] T019 Extend `src/EcoFlowMonitor.App/Services/MonitorOrchestrator.cs` `OnStateChanged` to: (a) build a `DeviceStateSnapshot` (per data-model.md) once per evaluation, (b) pass it to every triggered rule's actions, (c) create one `RuleFiring` per rule fire with the snapshot serialised into `TriggerValueJson`, and (d) write it to `IRuleFiringStore` at firing start. Per-action rows are written by the ActionRunner hook (T018).
 - [ ] T020 Add retention timer to `src/EcoFlowMonitor.App/App.axaml.cs`: on framework-initialization-completed, `PeriodicTimer(TimeSpan.FromHours(24))` calls `IRuleFiringStore.PruneOlderThanAsync(DateTime.UtcNow - TimeSpan.FromDays(_config.General.AuditRetentionDays ?? 30))`. Run once immediately at startup too. Add `AuditRetentionDays` to `AppConfig.General` with default `30`.
-- [ ] T021 Create `src/EcoFlowMonitor.Core/Platform/IShellExecutor.cs` with the interface + `ShellExecRequest`/`ShellExecResult` records + `ShellKind` enum exactly as specified in `contracts/IShellExecutor.md`. No implementations yet — that's per-story in US2.
+- [X] T021 Create `src/EcoFlowMonitor.Core/Platform/IShellExecutor.cs` with the interface + `ShellExecRequest`/`ShellExecResult` records + `ShellKind` enum exactly as specified in `contracts/IShellExecutor.md`. No implementations yet — that's per-story in US2.
 
 **Checkpoint**: Foundation is in place. All new polymorphic types round-trip through JSON, audit rows are emitted on every rule fire, and the shell interface is available for US2 to consume. User stories can now proceed in parallel.
 
