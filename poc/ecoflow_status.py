@@ -384,6 +384,22 @@ def parse_status_payload(raw: bytes) -> dict:
 # MQTT subscriber
 # ---------------------------------------------------------------------------
 
+def _wake_device(client: mqtt.Client, user_id: str, sn: str) -> None:
+    """Publish the 'latestQuotas' command so the broker pushes the device's
+    current state. Without this, the device stays silent until the official
+    EcoFlow mobile app pokes it."""
+    topic = f"/app/{user_id}/{sn}/thing/property/get"
+    payload = json.dumps({
+        "from": "HomeAssistant",
+        "id": "999954321",
+        "version": "1.1",
+        "moduleType": 0,
+        "operateType": "latestQuotas",
+        "params": {},
+    })
+    client.publish(topic, payload, qos=0)
+
+
 def fetch_device_status(creds: dict, user_id: str, sn: str, timeout: int = 30) -> dict:
     """Subscribe to device topic, collect protobuf messages for up to timeout seconds,
     decode and merge all fields, return a clean status dict."""
@@ -400,6 +416,7 @@ def fetch_device_status(creds: dict, user_id: str, sn: str, timeout: int = 30) -
     def on_connect(c, u, f, rc):
         if rc == 0:
             c.subscribe(topic)
+            _wake_device(c, user_id, sn)
 
     def on_message(c, u, msg):
         try:
@@ -440,6 +457,7 @@ def live_mode(creds: dict, user_id: str, sn: str, device_name: str = "EcoFlow") 
     def on_connect(c, u, f, rc):
         if rc == 0:
             c.subscribe(topic)
+            _wake_device(c, user_id, sn)
 
     def on_message(c, u, msg):
         nonlocal power_state, live_handle
