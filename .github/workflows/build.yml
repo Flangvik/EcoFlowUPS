@@ -21,15 +21,12 @@ jobs:
           - os: ubuntu-latest
             rid: linux-x64
             tfm: net10.0
-            tfms: net10.0
           - os: windows-latest
             rid: win-x64
             tfm: net10.0
-            tfms: net10.0
           - os: macos-latest
             rid: osx-arm64
             tfm: net10.0-macos
-            tfms: net10.0-macos
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -39,9 +36,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # The .NET macOS workload version on the runner image is tied to a specific
-      # Xcode. macos-latest may default to an older Xcode even when newer ones
-      # are pre-installed. Pick the highest-numbered Xcode available.
+      # GitHub runner images pin an older Xcode as the default; select the
+      # newest installed so the macos workload's SDK check passes.
       - name: Select newest Xcode
         if: runner.os == 'macOS'
         run: |
@@ -63,20 +59,13 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
           restore-keys: nuget-${{ runner.os }}-
 
-      # -p:TargetFrameworks=<single> overrides the csproj's multi-TFM list for
-      # this invocation so non-macOS runners never evaluate the net10.0-macos
-      # TFM (which would demand the macos workload).
-      - name: Restore
-        run: >-
-          dotnet restore src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj
-          -r ${{ matrix.rid }}
-          -p:TargetFrameworks=${{ matrix.tfms }}
-
+      # Single dotnet build does restore+build atomically. Separating them and
+      # passing --no-restore has bitten us: Grpc.Tools resolves native protoc
+      # via properties set during restore and sometimes comes up empty when
+      # restore ran in a different invocation.
       - name: Build
         run: >-
           dotnet build src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj
           -c Release
           -f ${{ matrix.tfm }}
           -r ${{ matrix.rid }}
-          -p:TargetFrameworks=${{ matrix.tfms }}
-          --no-restore

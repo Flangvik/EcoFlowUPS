@@ -23,19 +23,15 @@ jobs:
           - os: ubuntu-latest
             rid: linux-x64
             tfm: net10.0
-            tfms: net10.0
           - os: windows-latest
             rid: win-x64
             tfm: net10.0
-            tfms: net10.0
           - os: macos-latest
             rid: osx-arm64
             tfm: net10.0-macos
-            tfms: net10.0-macos
           - os: macos-13
             rid: osx-x64
             tfm: net10.0-macos
-            tfms: net10.0-macos
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -87,15 +83,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # -p:TargetFrameworks=net10.0 overrides the csproj's multi-TFM list
-          # so MSBuild never tries to restore/build the net10.0-macos TFM
-          # (which would need the macos workload that these runners don't have).
           dotnet publish src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj \
             -c Release \
             -f ${{ matrix.tfm }} \
             -r ${{ matrix.rid }} \
             --self-contained true \
-            -p:TargetFrameworks=${{ matrix.tfms }} \
             -p:Version=${{ steps.ver.outputs.version }} \
             -p:PublishSingleFile=true \
             -p:IncludeNativeLibrariesForSelfExtract=true \
