@@ -22,12 +22,22 @@ public partial class RuleEditorViewModel : ViewModelBase
     [ObservableProperty] private string _ruleName = "New rule";
     [ObservableProperty] private bool _enabled = true;
 
-    // Trigger fields
+    // Trigger type (drives which of the inputs below is shown)
     [ObservableProperty] private TriggerType _triggerType = TriggerType.PowerLost;
-    [ObservableProperty] private int _triggerThreshold;
-    [ObservableProperty] private string _triggerThresholdF = "";  // decimal string for temp/etc
-    [ObservableProperty] private int _triggerCooldownSeconds = 300;
-    [ObservableProperty] private int _triggerWindowSeconds = 300;
+
+    // Per-type threshold inputs. Exactly one of these is visible/edited at
+    // a time; the rest sit at their defaults. Keeping them separate (rather
+    // than one polymorphic value) avoids double-interpretation and lets each
+    // NumericUpDown have a sensible Min/Max for its concrete unit.
+    [ObservableProperty] private int _triggerPercent          = 20;   // BatteryBelow/Above
+    [ObservableProperty] private int _triggerMinutes          = 10;   // TimeRemainingBelow
+    [ObservableProperty] private int _triggerWatts            = 50;   // InputWattsBelow / OutputWattsAbove
+    [ObservableProperty] private decimal _triggerTempC        = 45m;  // TempAbove/Below
+    [ObservableProperty] private int _triggerOfflineSeconds   = 300;  // DeviceOffline window
+
+    // Always-visible cooldown. Default 300s for level triggers, 0s for edge
+    // triggers (set by OnTriggerTypeChanged below).
+    [ObservableProperty] private int _triggerCooldownSeconds  = 300;
 
     public TriggerType[] AllTriggerTypes { get; } = Enum.GetValues<TriggerType>();
     public ActionType[] AllActionTypes { get; } = Enum.GetValues<ActionType>();
@@ -67,6 +77,82 @@ public partial class RuleEditorViewModel : ViewModelBase
 
     public bool IsValid => !string.IsNullOrWhiteSpace(RuleName) && SelectedDevice != null && Actions.Count > 0;
 
+    // ── Per-trigger-type UI visibility / labels ────────────────────────────
+    // These drive which row of the trigger card is shown, so the form only
+    // ever asks for the exact value that the selected trigger consumes.
+
+    public bool IsEdgeOnly        => TriggerType is TriggerType.PowerLost or TriggerType.PowerRestored
+                                                 or TriggerType.AcPlugged or TriggerType.AcUnplugged
+                                                 or TriggerType.DeviceOnline;
+
+    public bool IsPercentTrigger  => TriggerType is TriggerType.BatteryBelow or TriggerType.BatteryAbove;
+    public bool IsMinutesTrigger  => TriggerType is TriggerType.TimeRemainingBelow;
+    public bool IsWattsTrigger    => TriggerType is TriggerType.InputWattsBelow or TriggerType.OutputWattsAbove;
+    public bool IsTempTrigger     => TriggerType is TriggerType.TempAbove or TriggerType.TempBelow;
+    public bool IsOfflineTrigger  => TriggerType is TriggerType.DeviceOffline;
+
+    /// <summary>Short description of what the selected trigger does, shown
+    /// under the trigger-type picker to remove ambiguity.</summary>
+    public string TriggerExplanation => TriggerType switch
+    {
+        TriggerType.PowerLost          => "Fires once when AC power drops (transition into PowerLost).",
+        TriggerType.PowerRestored      => "Fires once when AC power returns (transition out of PowerLost).",
+        TriggerType.AcPlugged          => "Fires once when the AC line is plugged into the station.",
+        TriggerType.AcUnplugged        => "Fires once when the AC line is unplugged from the station.",
+        TriggerType.DeviceOnline       => "Fires once when telemetry resumes after DeviceOffline.",
+        TriggerType.BatteryBelow       => "Fires while battery % is below the threshold, throttled by cooldown.",
+        TriggerType.BatteryAbove       => "Fires while battery % is above the threshold, throttled by cooldown.",
+        TriggerType.TimeRemainingBelow => "Fires while the device's estimated remaining runtime is below the threshold, throttled by cooldown.",
+        TriggerType.TempAbove          => "Fires while the BMS temperature is above the threshold, throttled by cooldown.",
+        TriggerType.TempBelow          => "Fires while the BMS temperature is below the threshold, throttled by cooldown.",
+        TriggerType.InputWattsBelow    => "Fires while total input wattage is below the threshold, throttled by cooldown.",
+        TriggerType.OutputWattsAbove   => "Fires while total output wattage is above the threshold, throttled by cooldown.",
+        TriggerType.DeviceOffline      => "Fires once when no telemetry has been received on any channel for the configured window.",
+        _                              => "",
+    };
+
+    public string ThresholdLabel => TriggerType switch
+    {
+        TriggerType.BatteryBelow       => "Fire when battery is below",
+        TriggerType.BatteryAbove       => "Fire when battery is above",
+        TriggerType.TimeRemainingBelow => "Fire when remaining runtime is below",
+        TriggerType.InputWattsBelow    => "Fire when total input is below",
+        TriggerType.OutputWattsAbove   => "Fire when total output exceeds",
+        TriggerType.TempAbove          => "Fire when temperature rises above",
+        TriggerType.TempBelow          => "Fire when temperature drops below",
+        TriggerType.DeviceOffline      => "Fire when no telemetry for at least",
+        _                              => "",
+    };
+
+    public string CooldownHint => IsEdgeOnly
+        ? "Edge trigger: a cooldown > 0 throttles repeated transitions. Default 0 (fire every transition)."
+        : "Level trigger: fires at most once per cooldown window while the condition holds. Default 300s.";
+
+    // When the trigger type changes, reset cooldown to the sensible default
+    // for that family and fan out the IsXxx/Label/Explanation notifications
+    // so the XAML IsVisible/Text bindings refresh.
+    partial void OnTriggerTypeChanged(TriggerType oldValue, TriggerType newValue)
+    {
+        OnPropertyChanged(nameof(IsEdgeOnly));
+        OnPropertyChanged(nameof(IsPercentTrigger));
+        OnPropertyChanged(nameof(IsMinutesTrigger));
+        OnPropertyChanged(nameof(IsWattsTrigger));
+        OnPropertyChanged(nameof(IsTempTrigger));
+        OnPropertyChanged(nameof(IsOfflineTrigger));
+        OnPropertyChanged(nameof(TriggerExplanation));
+        OnPropertyChanged(nameof(ThresholdLabel));
+        OnPropertyChanged(nameof(CooldownHint));
+
+        // Only reset cooldown when the FAMILY changed (edge ↔ level), to
+        // avoid surprising the user who just tweaked it.
+        bool wasEdge = oldValue is TriggerType.PowerLost or TriggerType.PowerRestored
+                                 or TriggerType.AcPlugged or TriggerType.AcUnplugged
+                                 or TriggerType.DeviceOnline;
+        bool isEdge  = IsEdgeOnly;
+        if (wasEdge != isEdge)
+            TriggerCooldownSeconds = isEdge ? 0 : 300;
+    }
+
     public RuleEditorViewModel(AppConfig config, IElevationService elevation)
     {
         _config = config;
@@ -87,10 +173,7 @@ public partial class RuleEditorViewModel : ViewModelBase
                       ?? Devices.FirstOrDefault();
 
         TriggerType = rule.Trigger.Type;
-        TriggerThreshold = rule.Trigger.Threshold;
-        TriggerThresholdF = rule.Trigger.ThresholdF?.ToString("G", System.Globalization.CultureInfo.InvariantCulture) ?? "";
-        TriggerCooldownSeconds = rule.Trigger.CooldownSeconds ?? 300;
-        TriggerWindowSeconds = rule.Trigger.WindowSeconds ?? 300;
+        LoadTriggerValuesFromConfig(rule.Trigger);
 
         Actions.Clear();
         foreach (var a in rule.Actions) Actions.Add(ActionRowViewModel.FromConfig(a));
@@ -109,10 +192,12 @@ public partial class RuleEditorViewModel : ViewModelBase
             SelectedDevice = Devices.FirstOrDefault(d => d.SerialNumber == device.SerialNumber);
 
         TriggerType = TriggerType.PowerLost;
-        TriggerThreshold = 0;
-        TriggerThresholdF = "";
-        TriggerCooldownSeconds = 300;
-        TriggerWindowSeconds = 300;
+        TriggerPercent        = 20;
+        TriggerMinutes        = 10;
+        TriggerWatts          = 50;
+        TriggerTempC          = 45m;
+        TriggerOfflineSeconds = 300;
+        TriggerCooldownSeconds = 0;  // PowerLost is edge → no cooldown by default
         Actions.Clear();
         Actions.Add(new ActionRowViewModel { Type = ActionType.Notification, NotificationTitle = "EcoFlow Alert", NotificationBody = "{device}: {status}" });
 
@@ -137,24 +222,72 @@ public partial class RuleEditorViewModel : ViewModelBase
     /// <summary>Serialise the working copy back to a RuleConfig.</summary>
     public RuleConfig BuildRule()
     {
-        float? thresholdF = null;
-        if (float.TryParse(TriggerThresholdF, System.Globalization.NumberStyles.Float,
-                           System.Globalization.CultureInfo.InvariantCulture, out var f))
-            thresholdF = f;
+        var trigger = new TriggerConfig
+        {
+            Type            = TriggerType,
+            CooldownSeconds = TriggerCooldownSeconds,
+        };
+
+        switch (TriggerType)
+        {
+            case TriggerType.BatteryBelow:
+            case TriggerType.BatteryAbove:
+                trigger.Threshold = TriggerPercent;
+                break;
+            case TriggerType.TimeRemainingBelow:
+                trigger.Threshold = TriggerMinutes;
+                break;
+            case TriggerType.InputWattsBelow:
+            case TriggerType.OutputWattsAbove:
+                trigger.Threshold = TriggerWatts;
+                break;
+            case TriggerType.TempAbove:
+            case TriggerType.TempBelow:
+                trigger.ThresholdF = (float)TriggerTempC;
+                break;
+            case TriggerType.DeviceOffline:
+                trigger.WindowSeconds = TriggerOfflineSeconds;
+                break;
+            // edge triggers carry no threshold
+        }
 
         var rule = EditingRule ?? new RuleConfig();
-        rule.Name = RuleName;
+        rule.Name    = RuleName;
         rule.Enabled = Enabled;
-        rule.Trigger = new TriggerConfig
-        {
-            Type             = TriggerType,
-            Threshold        = TriggerThreshold,
-            ThresholdF       = thresholdF,
-            CooldownSeconds  = TriggerCooldownSeconds,
-            WindowSeconds    = TriggerWindowSeconds,
-        };
+        rule.Trigger = trigger;
         rule.Actions = Actions.Select(a => a.ToConfig()).ToList();
         return rule;
+    }
+
+    /// <summary>Load the right per-type field out of <paramref name="t"/>.</summary>
+    private void LoadTriggerValuesFromConfig(TriggerConfig t)
+    {
+        TriggerCooldownSeconds = t.CooldownSeconds
+            ?? (IsEdgeOnly ? 0 : 300);
+
+        switch (t.Type)
+        {
+            case TriggerType.BatteryBelow:
+            case TriggerType.BatteryAbove:
+                TriggerPercent = Math.Clamp(t.Threshold, 0, 100);
+                break;
+            case TriggerType.TimeRemainingBelow:
+                TriggerMinutes = Math.Clamp(t.Threshold, 1, 1440);
+                break;
+            case TriggerType.InputWattsBelow:
+            case TriggerType.OutputWattsAbove:
+                TriggerWatts = Math.Clamp(t.Threshold, 0, 10000);
+                break;
+            case TriggerType.TempAbove:
+            case TriggerType.TempBelow:
+                TriggerTempC = t.ThresholdF.HasValue
+                    ? (decimal)t.ThresholdF.Value
+                    : (decimal)Math.Clamp(t.Threshold, -40, 120);
+                break;
+            case TriggerType.DeviceOffline:
+                TriggerOfflineSeconds = Math.Clamp(t.WindowSeconds ?? 300, 30, 86400);
+                break;
+        }
     }
 
     /// <summary>Persist the rule to the selected device's config.</summary>

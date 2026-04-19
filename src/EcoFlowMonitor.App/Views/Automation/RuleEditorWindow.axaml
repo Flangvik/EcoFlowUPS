@@ -39,25 +39,89 @@
 
       <!-- Trigger -->
       <Border Classes="Card" Padding="14">
-        <StackPanel Spacing="8">
+        <StackPanel Spacing="10">
           <TextBlock Text="TRIGGER" Classes="CaptionUpper" />
-          <Grid ColumnDefinitions="200,*">
-            <ComboBox ItemsSource="{Binding AllTriggerTypes}" SelectedItem="{Binding TriggerType}" />
-            <Grid Grid.Column="1" ColumnDefinitions="Auto,*,Auto,*">
-              <TextBlock Text="Threshold (int):" VerticalAlignment="Center" />
-              <NumericUpDown Grid.Column="1" Value="{Binding TriggerThreshold}" Minimum="0" Maximum="1000000" />
-              <TextBlock Grid.Column="2" Text="Cooldown (s):" VerticalAlignment="Center" Margin="10,0,0,0" />
-              <NumericUpDown Grid.Column="3" Value="{Binding TriggerCooldownSeconds}" Minimum="0" Maximum="86400" />
+
+          <!-- Type picker -->
+          <StackPanel Spacing="4">
+            <TextBlock Text="When does this rule fire?" Classes="BodySmall" />
+            <ComboBox ItemsSource="{Binding AllTriggerTypes}" SelectedItem="{Binding TriggerType}" HorizontalAlignment="Stretch" />
+          </StackPanel>
+
+          <!-- Inline explanation for the currently-selected type -->
+          <TextBlock Text="{Binding TriggerExplanation}" Classes="BodySmall" TextWrapping="Wrap" />
+
+          <!-- Edge triggers: no threshold, cooldown only -->
+          <Border IsVisible="{Binding IsEdgeOnly}" Padding="0">
+            <TextBlock Classes="BodySmall"
+                       Text="No threshold to set — this trigger fires on a state transition. Use the cooldown below if you want to debounce repeated fires." />
+          </Border>
+
+          <!-- Percent triggers: BatteryBelow / BatteryAbove -->
+          <StackPanel Spacing="4" IsVisible="{Binding IsPercentTrigger}">
+            <TextBlock Text="{Binding ThresholdLabel}" />
+            <Grid ColumnDefinitions="160,Auto,*">
+              <NumericUpDown Value="{Binding TriggerPercent}" Minimum="0" Maximum="100" FormatString="0" />
+              <TextBlock Grid.Column="1" Text="%" VerticalAlignment="Center" Margin="8,0,0,0" />
+              <TextBlock Grid.Column="2" Classes="BodySmall" VerticalAlignment="Center" Margin="16,0,0,0"
+                         Text="0–100. Example: 15 means the rule watches the battery and fires once the level crosses 15%." />
             </Grid>
-          </Grid>
-          <Grid ColumnDefinitions="Auto,160,Auto,160">
-            <TextBlock Text="Threshold (decimal):" VerticalAlignment="Center" />
-            <TextBox Grid.Column="1" Text="{Binding TriggerThresholdF}" Watermark="e.g. 55.0" />
-            <TextBlock Grid.Column="2" Text="Offline window (s):" VerticalAlignment="Center" Margin="10,0,0,0" />
-            <NumericUpDown Grid.Column="3" Value="{Binding TriggerWindowSeconds}" Minimum="30" Maximum="86400" />
-          </Grid>
-          <TextBlock Classes="BodySmall"
-                     Text="Level triggers (BatteryBelow, TempAbove, etc.) use Threshold. TempAbove/TempBelow use the decimal field when present. DeviceOffline uses the window. Edge triggers (PowerLost, AcPlugged, ...) ignore thresholds." />
+          </StackPanel>
+
+          <!-- Minutes trigger: TimeRemainingBelow -->
+          <StackPanel Spacing="4" IsVisible="{Binding IsMinutesTrigger}">
+            <TextBlock Text="{Binding ThresholdLabel}" />
+            <Grid ColumnDefinitions="160,Auto,*">
+              <NumericUpDown Value="{Binding TriggerMinutes}" Minimum="1" Maximum="1440" FormatString="0" />
+              <TextBlock Grid.Column="1" Text="min" VerticalAlignment="Center" Margin="8,0,0,0" />
+              <TextBlock Grid.Column="2" Classes="BodySmall" VerticalAlignment="Center" Margin="16,0,0,0"
+                         Text="Uses the station's own 'minutes remaining' estimate, so it's not affected by PC clock skew." />
+            </Grid>
+          </StackPanel>
+
+          <!-- Watts triggers: InputWattsBelow / OutputWattsAbove -->
+          <StackPanel Spacing="4" IsVisible="{Binding IsWattsTrigger}">
+            <TextBlock Text="{Binding ThresholdLabel}" />
+            <Grid ColumnDefinitions="160,Auto,*">
+              <NumericUpDown Value="{Binding TriggerWatts}" Minimum="0" Maximum="10000" FormatString="0" />
+              <TextBlock Grid.Column="1" Text="W" VerticalAlignment="Center" Margin="8,0,0,0" />
+              <TextBlock Grid.Column="2" Classes="BodySmall" VerticalAlignment="Center" Margin="16,0,0,0"
+                         Text="Useful for solar-low alerts (InputWattsBelow) or heavy-load alerts (OutputWattsAbove)." />
+            </Grid>
+          </StackPanel>
+
+          <!-- Temperature triggers: TempAbove / TempBelow -->
+          <StackPanel Spacing="4" IsVisible="{Binding IsTempTrigger}">
+            <TextBlock Text="{Binding ThresholdLabel}" />
+            <Grid ColumnDefinitions="160,Auto,*">
+              <NumericUpDown Value="{Binding TriggerTempC}" Minimum="-40" Maximum="120" Increment="0.5" FormatString="0.0" />
+              <TextBlock Grid.Column="1" Text="°C" VerticalAlignment="Center" Margin="8,0,0,0" />
+              <TextBlock Grid.Column="2" Classes="BodySmall" VerticalAlignment="Center" Margin="16,0,0,0"
+                         Text="Decimal values allowed (e.g. 55.0). Source: BMS-reported cell temperature." />
+            </Grid>
+          </StackPanel>
+
+          <!-- DeviceOffline: window instead of threshold -->
+          <StackPanel Spacing="4" IsVisible="{Binding IsOfflineTrigger}">
+            <TextBlock Text="{Binding ThresholdLabel}" />
+            <Grid ColumnDefinitions="160,Auto,*">
+              <NumericUpDown Value="{Binding TriggerOfflineSeconds}" Minimum="30" Maximum="86400" FormatString="0" />
+              <TextBlock Grid.Column="1" Text="sec" VerticalAlignment="Center" Margin="8,0,0,0" />
+              <TextBlock Grid.Column="2" Classes="BodySmall" VerticalAlignment="Center" Margin="16,0,0,0"
+                         Text="Fires once when both MQTT and BLE have been silent for this long. 300 = 5 minutes (default)." />
+            </Grid>
+          </StackPanel>
+
+          <!-- Cooldown — always shown, meaning changes by family -->
+          <StackPanel Spacing="4" Margin="0,8,0,0">
+            <TextBlock Text="Cooldown between fires" />
+            <Grid ColumnDefinitions="160,Auto,*">
+              <NumericUpDown Value="{Binding TriggerCooldownSeconds}" Minimum="0" Maximum="86400" FormatString="0" />
+              <TextBlock Grid.Column="1" Text="sec" VerticalAlignment="Center" Margin="8,0,0,0" />
+              <TextBlock Grid.Column="2" Classes="BodySmall" VerticalAlignment="Center" Margin="16,0,0,0" TextWrapping="Wrap"
+                         Text="{Binding CooldownHint}" />
+            </Grid>
+          </StackPanel>
         </StackPanel>
       </Border>
 
