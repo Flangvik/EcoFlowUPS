@@ -114,11 +114,24 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainVm = Services.GetRequiredService<MainWindowViewModel>();
-            desktop.MainWindow = new MainWindow { DataContext = mainVm };
+            var mainWindow = new MainWindow { DataContext = mainVm };
+            desktop.MainWindow = mainWindow;
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
             // Dock / Alt-Tab / window title-bar icon
-            desktop.MainWindow.Icon = LoadWindowIcon("avares://EcoFlowMonitor.App/Assets/app-icon.png");
+            mainWindow.Icon = LoadWindowIcon("avares://EcoFlowMonitor.App/Assets/app-icon.png");
+
+            // Clicking the window's red close button HIDES the window instead
+            // of disposing it, so the tray icon can re-show the same instance
+            // later. Explicit exit goes through the tray menu's "Exit" item.
+            mainWindow.Closing += (s, e) =>
+            {
+                if (((Window)s!).Owner is null && desktop.ShutdownMode == ShutdownMode.OnExplicitShutdown)
+                {
+                    e.Cancel = true;
+                    mainWindow.Hide();
+                }
+            };
 
             // Setup tray icon
             SetupTrayIcon(desktop);
@@ -159,14 +172,21 @@ public partial class App : Application
     {
         void OpenMain()
         {
-            var w = desktop.MainWindow;
-            if (w is null) return;
-            // Show from tray even if minimised or previously hidden.
-            if (!w.IsVisible) w.Show();
-            if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
-            w.Activate();
-            w.Topmost = true;  // briefly foreground — then drop it so it behaves like a normal window.
-            w.Topmost = false;
+            try
+            {
+                var w = desktop.MainWindow;
+                if (w is null) return;
+                if (w.WindowState == WindowState.Minimized)
+                    w.WindowState = WindowState.Normal;
+                if (!w.IsVisible)
+                    w.Show();
+                w.Activate();
+            }
+            catch (Exception ex)
+            {
+                // Never let a tray-icon path crash the app. Log and move on.
+                Log.Warning(ex, "failed to open main window from tray");
+            }
         }
 
         var trayIcon = new TrayIcon
