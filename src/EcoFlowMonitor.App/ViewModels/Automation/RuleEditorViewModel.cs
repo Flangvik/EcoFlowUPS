@@ -207,7 +207,12 @@ public partial class RuleEditorViewModel : ViewModelBase
     [RelayCommand]
     private void AddAction()
     {
-        Actions.Add(new ActionRowViewModel { Type = ActionType.WriteLog, LogMessage = "Rule fired: {device} {status}" });
+        Actions.Add(new ActionRowViewModel
+        {
+            Type              = ActionType.Notification,
+            NotificationTitle = "EcoFlow Alert",
+            NotificationBody  = "{device}: {status}",
+        });
         OnPropertyChanged(nameof(ElevationWarning));
     }
 
@@ -320,7 +325,7 @@ public partial class RuleEditorViewModel : ViewModelBase
 /// </summary>
 public partial class ActionRowViewModel : ViewModelBase
 {
-    [ObservableProperty] private ActionType _type = ActionType.WriteLog;
+    [ObservableProperty] private ActionType _type = ActionType.Notification;
 
     public bool IsNotification => Type == ActionType.Notification;
     public bool IsScript       => Type == ActionType.RunScript;
