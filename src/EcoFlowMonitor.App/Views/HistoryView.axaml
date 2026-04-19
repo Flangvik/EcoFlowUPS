@@ -10,7 +10,7 @@
     <DockPanel>
         <!-- Top bar -->
         <Border DockPanel.Dock="Top" Background="{StaticResource BackgroundSecondary}"
-                Padding="16,8" BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="0,0,0,1">
+                Padding="16,40,16,8" BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="0,0,0,1">
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Button Grid.Column="0" Classes="Ghost" Content="Back" Command="{Binding GoBackCommand}" />
                 <TextBlock Grid.Column="1" Text="History" Classes="BodyMedium"

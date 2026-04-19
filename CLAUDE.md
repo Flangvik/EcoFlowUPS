@@ -20,30 +20,29 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 ## Technology Stack
 
 ## Languages
-- C# (latest LangVersion) - All .NET projects in `service/src/` and `service/EcoFlowMonitor/`
-- AXAML - Avalonia UI markup in `service/src/EcoFlowMonitor.App/Views/` and `service/src/EcoFlowMonitor.App/Themes/`
+- C# (latest LangVersion) - All .NET projects in `src/`
+- AXAML - Avalonia UI markup in `src/EcoFlowMonitor.App/Views/` and `src/EcoFlowMonitor.App/Themes/`
 - Python 3 - Reference/prototype implementation in `poc/`
-- Protobuf (proto3/proto2) - Protocol schemas in `service/src/EcoFlowMonitor.Core/Proto/`
+- Protobuf (proto3/proto2) - Protocol schemas in `src/EcoFlowMonitor.Core/Proto/`
 ## Runtime
-- .NET 10.0 (`net10.0`) - All projects in `service/src/` target net10.0
-- .NET Framework 4.8 (`net48`) - Legacy WinForms project at `service/EcoFlowMonitor/`
+- .NET 10.0 (`net10.0`) - All projects in `src/` target net10.0
 - Python 3.x - PoC scripts (no version pinned)
 - NuGet (SDK-style .csproj) - No central package management; versions pinned per project
 - pip - `poc/requirements.txt` for Python dependencies
 - No lockfiles present (no `packages.lock.json`, no `pip freeze` output)
 ## Frameworks
-- Avalonia 11.2.3 - Cross-platform desktop UI framework (`service/src/EcoFlowMonitor.App/`)
+- Avalonia 11.2.3 - Cross-platform desktop UI framework (`src/EcoFlowMonitor.App/`)
 - Avalonia.Themes.Fluent 11.2.3 - Fluent design system theme
 - Avalonia.Fonts.Inter 11.2.3 - Inter font family for typography
 - CommunityToolkit.Mvvm 8.4.0 - MVVM source generators and base classes (used in both Core and App)
 - pytest 7.4.0 - Python PoC tests only (`poc/tests/`)
 - No .NET test project exists
-- Grpc.Tools 2.68.1 - Compiles `.proto` files to C# at build time (`service/src/EcoFlowMonitor.Core/`)
+- Grpc.Tools 2.68.1 - Compiles `.proto` files to C# at build time (`src/EcoFlowMonitor.Core/`)
 - MSBuild SDK-style projects - Standard `dotnet build` / `dotnet run` workflow
 - Conditional TFM multi-targeting: `EcoFlowMonitor.App` targets both `net10.0` and `net10.0-macos`
 - Conditional project references: Platform projects loaded based on OS at build time
 ## Key Dependencies
-- MQTTnet 4.3.7.1207 - MQTT client for EcoFlow cloud broker (`service/src/EcoFlowMonitor.Core/`)
+- MQTTnet 4.3.7.1207 - MQTT client for EcoFlow cloud broker (`src/EcoFlowMonitor.Core/`)
 - MQTTnet.Extensions.ManagedClient 4.3.7.1207 - Managed client extensions (referenced but plain `IMqttClient` is used)
 - Google.Protobuf 3.28.3 - Protobuf runtime for generated message classes
 - BouncyCastle.Cryptography 2.5.1 - SECP160r1 ECDH key exchange for BLE Type 7 encryption
@@ -52,14 +51,11 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 - LiveChartsCore.SkiaSharpView.Avalonia 2.0.0-rc3.3 - Power history charting in dashboard
 - Microsoft.Toolkit.Uwp.Notifications 7.1.3 - Windows toast notifications (Windows platform project only)
 - System.Text.Json - JSON serialization for config and REST API (built-in, no extra package)
-- MQTTnet 4.3.7 - Slightly older version than net10 project
-- Newtonsoft.Json 13.0.3 - JSON handling (replaced by System.Text.Json in the modern stack)
 - requests 2.31.0 - REST API calls
 - paho-mqtt 1.6.1 - MQTT client
 - rich 13.7.0 - Terminal dashboard rendering
 ## Solution Structure
-- `service/EcoFlowMonitor.sln` - Legacy single-project solution (net48 WinForms)
-- `service/src/EcoFlowMonitor.sln` - Modern multi-project solution (net10.0 Avalonia)
+- `src/EcoFlowMonitor.sln` - Multi-project solution (net10.0 Avalonia, cross-platform)
 | Project | Target | Purpose |
 |---------|--------|---------|
 | `EcoFlowMonitor.Core` | net10.0 | Protocol, models, client, state, triggers, actions |
@@ -73,12 +69,11 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 - `pd335_bms_bp.proto` - Delta 3 BMS/battery pack messages (proto3, compiled to C#)
 - `pd303.proto` - Smart Panel protocol (proto2, excluded from build due to duplicate field name)
 ## Embedded Resources
-- `service/src/EcoFlowMonitor.Core/Protocol/keydata.b64` - Base64-encoded 65,280-byte lookup table for BLE Type 7 session key derivation. Compiled as `<EmbeddedResource>`.
+- `src/EcoFlowMonitor.Core/Protocol/keydata.b64` - Base64-encoded 65,280-byte lookup table for BLE Type 7 session key derivation. Compiled as `<EmbeddedResource>`.
 ## Configuration
-- `.env.example` at repo root documents required credentials: `ECOFLOW_EMAIL`, `ECOFLOW_PASSWORD`, `ECOFLOW_DEVICE_SN`
-- `.env` file present in `.gitignore` - never committed
-- Runtime config stored as JSON at `%APPDATA%/EcoFlowMonitor/config.json` (or platform equivalent via `Environment.SpecialFolder.ApplicationData`)
-- Config managed by `service/src/EcoFlowMonitor.Core/Config/ConfigManager.cs` using `System.Text.Json`
+- Runtime config stored as JSON at `%APPDATA%/EcoFlowMonitor/config.json` on Windows, `~/Library/Application Support/EcoFlowMonitor/config.json` on macOS, `~/.config/EcoFlowMonitor/config.json` on Linux (resolved via `Environment.SpecialFolder.ApplicationData`)
+- Python POC uses a separate `poc/config.json` (template at `poc/config.json.example`); the C# app does not read env vars or `.env` files
+- Config managed by `src/EcoFlowMonitor.Core/Config/ConfigManager.cs` using `System.Text.Json`
 - No `global.json` - uses whatever .NET SDK is installed
 - No `Directory.Build.props` - each project defines its own settings
 - Nullable reference types enabled (`<Nullable>enable</Nullable>`) on all modern projects
@@ -257,22 +252,22 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 - **Cli** references only Core and is a standalone diagnostic tool.
 ## Layers
 - Purpose: Domain logic, protocol decoding, device communication, state management, configuration, and platform interface definitions.
-- Location: `service/src/EcoFlowMonitor.Core/`
+- Location: `src/EcoFlowMonitor.Core/`
 - Contains: Models, State, Protocol, Client (MQTT + BLE), Config, Triggers, Actions, Platform interfaces, Logging
 - Depends on: MQTTnet, BouncyCastle, Google.Protobuf, CommunityToolkit.Mvvm, NSec.Cryptography
 - Used by: App, Cli, Platform.{OS}
 - Purpose: OS-specific implementations of platform service interfaces
-- Location: `service/src/EcoFlowMonitor.Platform.{Windows,macOS,Linux}/`
+- Location: `src/EcoFlowMonitor.Platform.{Windows,macOS,Linux}/`
 - Contains: Notification, power actions (shutdown/sleep), startup registration, script runner, elevation check
 - Depends on: Core (for interface definitions), OS-specific APIs
 - Used by: App (loaded at runtime via reflection in `PlatformServiceFactory`)
 - Purpose: Avalonia UI application with MVVM ViewModels, Views, custom controls, and the `MonitorOrchestrator` service that ties everything together.
-- Location: `service/src/EcoFlowMonitor.App/`
+- Location: `src/EcoFlowMonitor.App/`
 - Contains: ViewModels, Views (AXAML), Controls, Converters, Services (orchestrator, navigation, platform factory, CoreBluetooth adapter), Themes
 - Depends on: Core, Platform.{OS} (conditional), Avalonia, LiveChartsCore, Microsoft.Extensions.DependencyInjection
 - Used by: End user (executable)
 - Purpose: Diagnostic tool that connects to MQTT and dumps raw protobuf field data for reverse-engineering new device protocols.
-- Location: `service/src/EcoFlowMonitor.Cli/`
+- Location: `src/EcoFlowMonitor.Cli/`
 - Contains: Single `Program.cs` (top-level statements)
 - Depends on: Core
 - Used by: Developer for protocol analysis
@@ -284,36 +279,36 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 - `DeviceViewModel.UpdateFromState(DeviceState)` maps domain state to observable properties with null-coalescing (keeps previous value if new data is null)
 ## Key Abstractions
 - Purpose: Unified interface for any device communication channel (MQTT or BLE)
-- Location: `service/src/EcoFlowMonitor.Core/Client/IDeviceMonitor.cs`
-- Implementations: `MqttMonitor` (`service/src/EcoFlowMonitor.Core/Client/MqttMonitor.cs`), `BleMonitor` (`service/src/EcoFlowMonitor.Core/Client/Ble/BleMonitor.cs`)
+- Location: `src/EcoFlowMonitor.Core/Client/IDeviceMonitor.cs`
+- Implementations: `MqttMonitor` (`src/EcoFlowMonitor.Core/Client/MqttMonitor.cs`), `BleMonitor` (`src/EcoFlowMonitor.Core/Client/Ble/BleMonitor.cs`)
 - Pattern: Event-based (`StateChanged` event); `StartAsync()`/`StopAsync()` lifecycle; `IDisposable`
 - Purpose: Platform-agnostic BLE scanning and GATT operations
-- Location: `service/src/EcoFlowMonitor.Core/Platform/IBleAdapter.cs`
-- Implementations: `CoreBluetoothBleAdapter` (macOS, `service/src/EcoFlowMonitor.App/Services/CoreBluetoothBleAdapter.cs`), `StubBleAdapter` (fallback, in `PlatformServiceFactory.cs`)
+- Location: `src/EcoFlowMonitor.Core/Platform/IBleAdapter.cs`
+- Implementations: `CoreBluetoothBleAdapter` (macOS, `src/EcoFlowMonitor.App/Services/CoreBluetoothBleAdapter.cs`), `StubBleAdapter` (fallback, in `PlatformServiceFactory.cs`)
 - Pattern: Factory (`IBleAdapter.CreateConnection()` returns `IBleGattConnection`); async event-based scanning
 - Purpose: Encrypt/decrypt BLE transport frames
-- Location: `service/src/EcoFlowMonitor.Core/Protocol/BleCrypto.cs`
+- Location: `src/EcoFlowMonitor.Core/Protocol/BleCrypto.cs`
 - Implementations: `BleCryptoLegacy` (Type 1, AES-256-CBC with MD5-derived keys), `BleCryptoModern` (Type 7, ECDH SECP160r1 -> AES-128-CBC with session key)
-- `INotificationService` - OS notifications (`service/src/EcoFlowMonitor.Core/Platform/INotificationService.cs`)
-- `IPowerActionService` - Shutdown/hibernate/sleep (`service/src/EcoFlowMonitor.Core/Platform/IPowerActionService.cs`)
-- `IStartupService` - Auto-start on login (`service/src/EcoFlowMonitor.Core/Platform/IStartupService.cs`)
-- `IScriptRunnerService` - Execute scripts (`service/src/EcoFlowMonitor.Core/Platform/IScriptRunnerService.cs`)
-- `IElevationService` - Check/request admin privileges (`service/src/EcoFlowMonitor.Core/Platform/IElevationService.cs`)
-- All defined in `service/src/EcoFlowMonitor.Core/Platform/`
+- `INotificationService` - OS notifications (`src/EcoFlowMonitor.Core/Platform/INotificationService.cs`)
+- `IPowerActionService` - Shutdown/hibernate/sleep (`src/EcoFlowMonitor.Core/Platform/IPowerActionService.cs`)
+- `IStartupService` - Auto-start on login (`src/EcoFlowMonitor.Core/Platform/IStartupService.cs`)
+- `IScriptRunnerService` - Execute scripts (`src/EcoFlowMonitor.Core/Platform/IScriptRunnerService.cs`)
+- `IElevationService` - Check/request admin privileges (`src/EcoFlowMonitor.Core/Platform/IElevationService.cs`)
+- All defined in `src/EcoFlowMonitor.Core/Platform/`
 - Purpose: Central coordinator that manages all device monitors, evaluates trigger rules, and dispatches actions
-- Location: `service/src/EcoFlowMonitor.App/Services/MonitorOrchestrator.cs`
+- Location: `src/EcoFlowMonitor.App/Services/MonitorOrchestrator.cs`
 - Pattern: Owns a `List<MonitorEntry>` (record of `DeviceConfig + DeviceState + IDeviceMonitor`); provides `DeviceUpdated` event for the UI layer
 - Purpose: Simple view-model navigation for single-window app
-- Location: `service/src/EcoFlowMonitor.App/Services/NavigationService.cs`
+- Location: `src/EcoFlowMonitor.App/Services/NavigationService.cs`
 - Pattern: `CurrentView` observable property; `MainWindow.axaml` uses `DataTemplate`s to resolve ViewModel types to View types
 ## Entry Points
-- Location: `service/src/EcoFlowMonitor.App/Program.cs`
+- Location: `src/EcoFlowMonitor.App/Program.cs`
 - Triggers: User launches the application
 - Responsibilities: Single-instance mutex, global exception handlers, Avalonia app builder -> `App.OnFrameworkInitializationCompleted()` sets up DI container, creates `MainWindow`, tray icon
-- Location: `service/src/EcoFlowMonitor.Cli/Program.cs`
+- Location: `src/EcoFlowMonitor.Cli/Program.cs`
 - Triggers: Developer runs from terminal
 - Responsibilities: Connects to MQTT using saved credentials, subscribes to all device topics, dumps unique protobuf field structures to console for 30 seconds
-- Location: `service/src/EcoFlowMonitor.App/App.axaml.cs` (`OnFrameworkInitializationCompleted`)
+- Location: `src/EcoFlowMonitor.App/App.axaml.cs` (`OnFrameworkInitializationCompleted`)
 - Registers: `AppConfig` (singleton), platform services via `PlatformServiceFactory.Register()`, `MonitorOrchestrator`, `NavigationService`, all ViewModels, `BleScanner`
 - Container exposed via `App.Services` static property (used by ViewModels to resolve dependencies)
 ## Threading Model
@@ -354,7 +349,7 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 - `TemplateExpander.Expand()` replaces `{device}`, `{battery}`, `{remain}`, `{status}`, `{in_w}`, `{out_w}` in action text fields
 - Actions delegate to platform services (`INotificationService`, `IPowerActionService`, `IScriptRunnerService`)
 ## Configuration System
-- Location: `service/src/EcoFlowMonitor.Core/Config/ConfigManager.cs`
+- Location: `src/EcoFlowMonitor.Core/Config/ConfigManager.cs`
 - Static class with `Load()` / `Save()` methods
 - Stores `AppConfig` as JSON in `%APPDATA%/EcoFlowMonitor/config.json`
 - Uses `System.Text.Json` with camelCase naming and pretty-printing
@@ -370,7 +365,7 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 - `ProtobufDecoder.Dispatch()` / `BleDispatcher.Dispatch()`: return `false` on any exception
 - `Program.cs`: `AppDomain.UnhandledException` and `TaskScheduler.UnobservedTaskException` log to `crash.log`
 ## Cross-Cutting Concerns
-- `Logger` static class (`service/src/EcoFlowMonitor.Core/Logging/Logger.cs`)
+- `Logger` static class (`src/EcoFlowMonitor.Core/Logging/Logger.cs`)
 - Writes timestamped lines to `%APPDATA%/EcoFlowMonitor/debug.log` (or custom path from config)
 - Thread-safe via `lock(_lock)` on file writes
 - Used extensively throughout Core and App layers

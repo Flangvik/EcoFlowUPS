@@ -1,58 +1,112 @@
 # EcoFlowUPS
 
-Unofficial EcoFlow power station monitor — no developer API key required.
+Cross-platform desktop monitor for EcoFlow power stations. Real-time telemetry via **BLE** (local) or **MQTT** (cloud), configurable automation rules, and persistent history. No developer API key required — authenticates with your regular EcoFlow account.
 
-Connects to EcoFlow's cloud MQTT broker using your regular account credentials, decodes protobuf telemetry, and fires configurable actions (scripts, shutdown, notifications, log entries) based on power events and battery thresholds.
-
-> **Status:** Confirmed working on EcoFlow Delta 3. Any EcoFlow device with MQTT telemetry should work.
+> **Status:** Confirmed working on EcoFlow Delta 3 (BLE + MQTT). Other EcoFlow devices using the `pd335_sys` protobuf should also work.
 
 ---
 
-## Components
+## Repository layout
 
-### `poc/` — Python Reference Implementation
-
-Standalone scripts that document the EcoFlow API and MQTT protocol. Use these to explore the protocol or verify your credentials before configuring the Windows service.
-
-See [`poc/README.md`](poc/README.md) for setup and usage.
-
-### `service/` — Windows Tray Monitor
-
-C# .NET Framework 4.8 WinForms application that runs in the system tray and monitors one or more EcoFlow devices. Fires user-configured rules when power events or battery thresholds occur.
-
-See [`service/README.md`](service/README.md) for setup and usage.
-
----
-
-## Protocol Notes
-
-- **Auth:** REST login at `api.ecoflow.com/auth/login` returns a JWT token and user ID
-- **MQTT credentials:** Separate REST call to `api.ecoflow.com/iot-auth/app/certification` exchanges the JWT for MQTT username/password
-- **Broker:** `mqtt.ecoflow.com:8883` (TLS, certificate validation disabled — self-signed cert)
-- **Topic:** `/app/device/property/{serialNumber}` — device publishes telemetry here
-- **Encoding:** Protobuf binary with a custom outer envelope; inner fields are XOR-encrypted when `encType == 1` and `src != 32`, key = `seq & 0xFF`
-- **No official SDK:** This is based on packet capture and reverse engineering
+```
+EcoFlowUPS/
+├── src/                  Avalonia desktop app (.NET 10, cross-platform)
+│   ├── EcoFlowMonitor.sln
+│   ├── EcoFlowMonitor.App/                Avalonia UI, ViewModels, services
+│   ├── EcoFlowMonitor.Core/               Protocol, models, MQTT + BLE clients
+│   ├── EcoFlowMonitor.Cli/                Diagnostic CLI (raw MQTT dump)
+│   ├── EcoFlowMonitor.Platform.Windows/   WinRT BLE, toasts, Task Scheduler
+│   ├── EcoFlowMonitor.Platform.macOS/     CoreBluetooth BLE, osascript, LaunchAgent
+│   └── EcoFlowMonitor.Platform.Linux/     BlueZ BLE, libnotify, systemd user units
+├── poc/                  Python reference implementation (protocol notes)
+├── CLAUDE.md             AI-assistant context for this repo
+└── README.md             You are here
+```
 
 ---
 
-## Supported Triggers
+## `src/` — Desktop app
+
+.NET 10 + Avalonia UI. Runs on Windows, macOS, and Linux with a shared core and per-platform adapters (tray icon, notifications, BLE backend, power actions, autostart).
+
+**Features:**
+
+- **BLE channel:** ECDH SECP160r1 handshake → AES-128-CBC session → `pd335_sys.DisplayPropertyUpload` protobuf
+- **MQTT channel:** Cloud broker at `mqtt.ecoflow.com:8883` using credentials fetched via the REST login flow
+- **History:** SQLite-backed time series of every telemetry snapshot and power event, visible in the History view
+- **Rules:** triggers (`PowerLost`, `PowerRestored`, `BatteryBelow`, `TimeRemainingBelow`) → actions (shutdown, hibernate, sleep, run script, OS notification, write log line)
+
+**Build:**
+
+```bash
+# macOS (Apple Silicon)
+dotnet build src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj -f net10.0-macos -c Debug -r osx-arm64
+open src/EcoFlowMonitor.App/bin/Debug/net10.0-macos/osx-arm64/EcoFlowMonitor.App.app
+
+# Windows
+dotnet build src/EcoFlowMonitor.sln -c Release
+
+# Linux
+dotnet build src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj -f net10.0 -c Release
+```
+
+**Config:** written by the in-app Settings screen. The app does not read `.env` or environment variables.
+
+| OS | Location |
+|---|---|
+| Windows | `%AppData%\EcoFlowMonitor\config.json` |
+| macOS | `~/Library/Application Support/EcoFlowMonitor/config.json` |
+| Linux | `~/.config/EcoFlowMonitor/config.json` |
+
+---
+
+## `poc/` — Python reference
+
+Standalone scripts that document the EcoFlow REST API, MQTT protocol, and BLE protocol. Useful for verifying credentials or exploring wire formats before debugging the C# app. See [`poc/README.md`](poc/README.md) for setup (uses its own `poc/config.json`).
+
+---
+
+## Protocol notes
+
+### Cloud (MQTT)
+
+- **Auth:** REST login at `api.ecoflow.com/auth/login` returns a JWT + user ID
+- **MQTT creds:** `api.ecoflow.com/iot-auth/app/certification` exchanges the JWT for MQTT username/password
+- **Broker:** `mqtt.ecoflow.com:8883` (TLS, self-signed cert)
+- **Topic:** `/app/device/property/{serialNumber}`
+- **Encoding:** Protobuf binary with a custom outer envelope; inner payload XOR-encrypted when `encType == 1` and `src != 32` (key = `seq & 0xFF`)
+
+### Local (BLE)
+
+- **Advertisement:** Service UUID `0000FFF0-0000-1000-8000-00805F9B34FB`, manufacturer ID `46517`
+- **GATT:** Nordic UART — notify `00000003-…`, write `00000002-…`
+- **Handshake:** ECDH SECP160r1, session key derived via embedded `keydata.b64` lookup table + MD5
+- **Transport:** AES-128-CBC with PKCS7 padding; frame type `0x01` for post-handshake packets
+- **Auth:** `MD5(cloud_user_id + device_sn)` as ASCII-hex on `cmdSet=0x35, cmdId=0x86`
+- **Data:** `pd335_sys.DisplayPropertyUpload` on `src=0x02, cmdSet=0xFE, cmdId=0x15`; payload XOR-decoded with `seq[0]` before protobuf parse
+
+No official SDK — all of the above is from packet capture and the [`ha-ef-ble`](https://github.com/tonyswe/ha-ef-ble) Home Assistant integration.
+
+---
+
+## Triggers
 
 | Trigger | Description |
 |---|---|
 | `PowerLost` | AC input dropped to 0 W (edge, fires once) |
 | `PowerRestored` | AC input returned after power loss (edge, fires once) |
-| `BatteryBelow` | Battery percentage below threshold (level, with 5-min cooldown) |
-| `TimeRemainingBelow` | Estimated minutes remaining below threshold (level, with 5-min cooldown) |
+| `BatteryBelow` | Battery % below threshold (level, 5-minute cooldown) |
+| `TimeRemainingBelow` | Estimated minutes remaining below threshold (level, 5-minute cooldown) |
 
-## Supported Actions
+## Actions
 
-| Action | Description |
-|---|---|
-| `RunScript` | Execute a `.bat`, `.ps1`, or `.exe` |
-| `Shutdown` | `shutdown.exe /s /t 0` |
-| `Hibernate` | `shutdown.exe /h` |
-| `Sleep` | `rundll32.exe powrprof.dll,SetSuspendState 0,1,0` |
-| `Notification` | Windows toast / balloon tip |
-| `WriteLog` | Append timestamped entry to a log file |
+| Action | Windows | macOS | Linux |
+|---|---|---|---|
+| `Shutdown` | `shutdown.exe /s /t 0` | `osascript … shut down` | `systemctl poweroff` |
+| `Hibernate` | `shutdown.exe /h` | `pmset sleepnow` | `systemctl hibernate` |
+| `Sleep` | `rundll32.exe … SetSuspendState` | `pmset sleepnow` | `systemctl suspend` |
+| `RunScript` | `.bat`, `.ps1`, `.exe` | shell / exec | shell / exec |
+| `Notification` | Toast | `osascript display notification` | `notify-send` |
+| `WriteLog` | timestamped append | timestamped append | timestamped append |
 
-Template variables available in notification body and log messages: `{device}`, `{battery}`, `{remain}`, `{status}`, `{in_w}`, `{out_w}`.
+Template variables expanded in notification body and log messages: `{device}`, `{battery}`, `{remain}`, `{status}`, `{in_w}`, `{out_w}`.

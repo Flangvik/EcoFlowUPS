@@ -1,5 +1,4 @@
-.env
-# User config with credentials (not planning config)
+# User config with credentials (POC config.json — C# app stores in AppData)
 config.json
 !.planning/config.json
 __pycache__/
@@ -13,7 +12,6 @@ bin/
 obj/
 *.user
 
-# Diagnostic tools with hardcoded credentials
+# Diagnostic scripts with hardcoded credentials
 poc/mqtt_diag.py
-service/EcoFlowDiag/
 .claude/worktrees/
