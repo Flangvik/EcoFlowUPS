@@ -1,3 +1,4 @@
+using System.Net.Http;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -5,9 +6,11 @@ using Avalonia.Markup.Xaml;
 using EcoFlowMonitor.Config;
 using EcoFlowMonitor.History;
 using EcoFlowMonitor.Models;
+using EcoFlowMonitor.Platform;
 using EcoFlowMonitor.Client.Ble;
 using EcoFlowMonitor.Services;
 using EcoFlowMonitor.ViewModels;
+using EcoFlowMonitor.ViewModels.Automation;
 using EcoFlowMonitor.Views;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -69,14 +72,42 @@ public partial class App : Application
         services.AddTransient<BleScanViewModel>();
         services.AddSingleton<IHistoryStore>(_ => new SqliteHistoryStore(dbPath));
         services.AddSingleton<IEventStore>(_ => new SqliteEventStore(dbPath));
+        services.AddSingleton<IRuleFiringStore>(_ => new SqliteRuleFiringStore(dbPath));
+        services.AddSingleton<IShellExecutor, ShellExecutor>();
+        services.AddSingleton(_ => new HttpClient(new SocketsHttpHandler
+        {
+            PooledConnectionLifetime = TimeSpan.FromMinutes(5),
+            AutomaticDecompression   = System.Net.DecompressionMethods.All,
+        }));
         services.AddTransient<HistoryViewModel>();
+        services.AddSingleton<RulesListViewModel>();
+        services.AddTransient<RuleEditorViewModel>();
+        services.AddSingleton<RuleHistoryViewModel>();
 
         Services = services.BuildServiceProvider();
 
-        var historyStore = Services.GetRequiredService<IHistoryStore>();
-        var eventStore   = Services.GetRequiredService<IEventStore>();
+        var historyStore     = Services.GetRequiredService<IHistoryStore>();
+        var eventStore       = Services.GetRequiredService<IEventStore>();
+        var ruleFiringStore  = Services.GetRequiredService<IRuleFiringStore>();
         await historyStore.StartAsync();
         await eventStore.StartAsync();
+        await ruleFiringStore.StartAsync();
+
+        // Daily audit-log retention pruning (T020).
+        _ = Task.Run(async () =>
+        {
+            while (true)
+            {
+                try
+                {
+                    var days = Math.Max(1, config.General.AuditRetentionDays);
+                    await ruleFiringStore.PruneOlderThanAsync(DateTimeOffset.UtcNow - TimeSpan.FromDays(days));
+                }
+                catch (Exception ex) { Log.Warning(ex, "rule-firing audit prune failed"); }
+                try { await Task.Delay(TimeSpan.FromHours(24)); }
+                catch { break; }
+            }
+        });
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

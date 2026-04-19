@@ -16,6 +16,15 @@ public partial class DeviceViewModel : ViewModelBase
     public string? SerialNumber => _device.SerialNumber;
     public DeviceConfig Config => _device;
 
+    /// <summary>
+    /// Called by DashboardViewModel after a rule is added/edited/deleted so
+    /// bindings against <see cref="Config"/>.Rules pick up the changes.
+    /// </summary>
+    public void RaiseRulesChanged()
+    {
+        OnPropertyChanged(nameof(Config));
+    }
+
     // Connection info
     [ObservableProperty] private string _connectionBadge = "CLOUD";
     [ObservableProperty] private string _activeSource = "";

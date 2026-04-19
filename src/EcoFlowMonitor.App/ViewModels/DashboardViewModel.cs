@@ -107,9 +107,80 @@ public partial class DashboardViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void AddRule()
+    private async Task AddRule()
     {
-        // TODO: open rule wizard for selected device
+        var vm = App.Services!.GetRequiredService<ViewModels.Automation.RuleEditorViewModel>();
+        var deviceCfg = SelectedDevice == null
+            ? _config.Devices.FirstOrDefault()
+            : _config.Devices.FirstOrDefault(d => d.SerialNumber == SelectedDevice.SerialNumber);
+        vm.LoadNewRule(deviceCfg);
+
+        var win = new Views.Automation.RuleEditorWindow { DataContext = vm };
+        if (Avalonia.Application.Current?.ApplicationLifetime
+                is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is { } owner)
+        {
+            await win.ShowDialog(owner);
+        }
+        else
+        {
+            win.Show();
+        }
+        // Refresh the dashboard's rule list binding
+        OnPropertyChanged(nameof(Devices));
+        foreach (var dv in Devices) dv.RaiseRulesChanged();
+    }
+
+    [RelayCommand]
+    private async Task EditRule(RuleConfig? rule)
+    {
+        if (rule == null || SelectedDevice == null) return;
+        var deviceCfg = _config.Devices.FirstOrDefault(d => d.SerialNumber == SelectedDevice.SerialNumber);
+        if (deviceCfg == null) return;
+
+        var vm = App.Services!.GetRequiredService<ViewModels.Automation.RuleEditorViewModel>();
+        vm.LoadRule(deviceCfg, rule);
+
+        var win = new Views.Automation.RuleEditorWindow { DataContext = vm };
+        if (Avalonia.Application.Current?.ApplicationLifetime
+                is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop
+            && desktop.MainWindow is { } owner)
+        {
+            await win.ShowDialog(owner);
+        }
+        else
+        {
+            win.Show();
+        }
+        foreach (var dv in Devices) dv.RaiseRulesChanged();
+    }
+
+    [RelayCommand]
+    private void DeleteRule(RuleConfig? rule)
+    {
+        if (rule == null || SelectedDevice == null) return;
+        var deviceCfg = _config.Devices.FirstOrDefault(d => d.SerialNumber == SelectedDevice.SerialNumber);
+        if (deviceCfg == null) return;
+        deviceCfg.Rules.RemoveAll(r => r.Id == rule.Id);
+        ConfigManager.Save(_config);
+        foreach (var dv in Devices) dv.RaiseRulesChanged();
+    }
+
+    [RelayCommand]
+    private void TestRule(RuleConfig? rule)
+    {
+        if (rule == null || SelectedDevice == null) return;
+        var deviceCfg = _config.Devices.FirstOrDefault(d => d.SerialNumber == SelectedDevice.SerialNumber);
+        if (deviceCfg == null) return;
+        _orchestrator.TestRule(deviceCfg, rule);
+    }
+
+    [RelayCommand]
+    private void ViewRuleHistory()
+    {
+        var vm = App.Services!.GetRequiredService<ViewModels.Automation.RuleHistoryViewModel>();
+        var win = new Views.Automation.RuleHistoryWindow { DataContext = vm };
+        win.Show();
     }
 
     [RelayCommand]

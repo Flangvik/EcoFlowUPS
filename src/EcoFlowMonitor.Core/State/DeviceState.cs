@@ -35,4 +35,21 @@ public class DeviceState
     // -- Staleness watchdog (D-05, D-06) -------------------------------------
     // Updated on every decoded packet -- used to compute "Last update: Xm ago"
     public DateTime? LastDataReceived { get; set; }
+
+    // -- Rules-engine edge-trigger bookkeeping (feature 001) -----------------
+
+    /// <summary>
+    /// Previous value of <c>Display.AcPluggedIn</c> observed at the last
+    /// trigger evaluation. Used by <see cref="EcoFlowMonitor.Triggers.TriggerEvaluator"/>
+    /// to fire <c>AcPlugged</c> / <c>AcUnplugged</c> edge triggers.
+    /// Null until first observation.
+    /// </summary>
+    public bool? LastAcPluggedIn { get; set; }
+
+    /// <summary>
+    /// True while the device is considered offline (no telemetry for longer
+    /// than any <c>DeviceOffline</c> rule's window). Set by
+    /// <see cref="EcoFlowMonitor.Triggers.DeviceOfflineWatcher"/>.
+    /// </summary>
+    public bool IsOffline { get; set; }
 }

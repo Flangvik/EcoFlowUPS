@@ -1,0 +1,154 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:EcoFlowMonitor.ViewModels.Automation"
+        xmlns:models="using:EcoFlowMonitor.Models"
+        x:Class="EcoFlowMonitor.Views.Automation.RuleEditorWindow"
+        x:DataType="vm:RuleEditorViewModel"
+        Title="Edit Rule"
+        Width="720" Height="780"
+        WindowStartupLocation="CenterOwner"
+        CanResize="True"
+        Background="{StaticResource BackgroundPrimary}">
+
+  <ScrollViewer Padding="20">
+    <StackPanel Spacing="14">
+
+      <!-- Name + Enabled -->
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Grid.Column="0" Spacing="4">
+          <TextBlock Text="Rule name" Classes="CaptionUpper" />
+          <TextBox Text="{Binding RuleName}" />
+        </StackPanel>
+        <StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Bottom">
+          <TextBlock Text="Enabled" Classes="CaptionUpper" />
+          <ToggleSwitch IsChecked="{Binding Enabled}" />
+        </StackPanel>
+      </Grid>
+
+      <!-- Device -->
+      <StackPanel Spacing="4">
+        <TextBlock Text="Device" Classes="CaptionUpper" />
+        <ComboBox ItemsSource="{Binding Devices}" SelectedItem="{Binding SelectedDevice}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="models:DeviceConfig">
+              <TextBlock Text="{Binding DisplayName}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+      </StackPanel>
+
+      <!-- Trigger -->
+      <Border Classes="Card" Padding="14">
+        <StackPanel Spacing="8">
+          <TextBlock Text="TRIGGER" Classes="CaptionUpper" />
+          <Grid ColumnDefinitions="200,*">
+            <ComboBox ItemsSource="{Binding AllTriggerTypes}" SelectedItem="{Binding TriggerType}" />
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*,Auto,*">
+              <TextBlock Text="Threshold (int):" VerticalAlignment="Center" />
+              <NumericUpDown Grid.Column="1" Value="{Binding TriggerThreshold}" Minimum="0" Maximum="1000000" />
+              <TextBlock Grid.Column="2" Text="Cooldown (s):" VerticalAlignment="Center" Margin="10,0,0,0" />
+              <NumericUpDown Grid.Column="3" Value="{Binding TriggerCooldownSeconds}" Minimum="0" Maximum="86400" />
+            </Grid>
+          </Grid>
+          <Grid ColumnDefinitions="Auto,160,Auto,160">
+            <TextBlock Text="Threshold (decimal):" VerticalAlignment="Center" />
+            <TextBox Grid.Column="1" Text="{Binding TriggerThresholdF}" Watermark="e.g. 55.0" />
+            <TextBlock Grid.Column="2" Text="Offline window (s):" VerticalAlignment="Center" Margin="10,0,0,0" />
+            <NumericUpDown Grid.Column="3" Value="{Binding TriggerWindowSeconds}" Minimum="30" Maximum="86400" />
+          </Grid>
+          <TextBlock Classes="BodySmall"
+                     Text="Level triggers (BatteryBelow, TempAbove, etc.) use Threshold. TempAbove/TempBelow use the decimal field when present. DeviceOffline uses the window. Edge triggers (PowerLost, AcPlugged, ...) ignore thresholds." />
+        </StackPanel>
+      </Border>
+
+      <!-- Actions -->
+      <Border Classes="Card" Padding="14">
+        <StackPanel Spacing="8">
+          <Grid ColumnDefinitions="*,Auto">
+            <TextBlock Text="ACTIONS (run sequentially)" Classes="CaptionUpper" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Classes="Ghost" Content="+ Action" Command="{Binding AddActionCommand}" />
+          </Grid>
+          <ItemsControl ItemsSource="{Binding Actions}">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate x:DataType="vm:ActionRowViewModel">
+                <Border Background="{StaticResource SurfaceCard}" CornerRadius="6"
+                        BorderBrush="{StaticResource SurfaceCardBorder}" BorderThickness="1"
+                        Padding="10" Margin="0,4">
+                  <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="200,*,Auto">
+                      <ComboBox ItemsSource="{Binding $parent[ItemsControl].DataContext.AllActionTypes}"
+                                SelectedItem="{Binding Type}" />
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" Classes="BodySmall"
+                                 Text="{Binding Type}" />
+                      <Button Grid.Column="2" Classes="Ghost" Content="Remove"
+                              Command="{Binding $parent[ItemsControl].DataContext.RemoveActionCommand}"
+                              CommandParameter="{Binding}" />
+                    </Grid>
+
+                    <StackPanel Spacing="4" IsVisible="{Binding IsNotification}">
+                      <TextBox Text="{Binding NotificationTitle}" Watermark="Notification title (supports {device}, {battery}, ...)" />
+                      <TextBox Text="{Binding NotificationBody}" Watermark="Notification body" TextWrapping="Wrap" AcceptsReturn="True" MinHeight="50" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4" IsVisible="{Binding IsScript}">
+                      <TextBox Text="{Binding ScriptPath}" Watermark="Script path (absolute)" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4" IsVisible="{Binding IsLog}">
+                      <TextBox Text="{Binding LogPath}" Watermark="Log path (optional; default: app log)" />
+                      <TextBox Text="{Binding LogMessage}" Watermark="Log message template" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4" IsVisible="{Binding IsWebhook}">
+                      <TextBox Text="{Binding WebhookUrl}" Watermark="https://example.com/hook" />
+                      <Grid ColumnDefinitions="100,*,Auto,120,Auto,120">
+                        <ComboBox SelectedValue="{Binding WebhookMethod}">
+                          <ComboBoxItem Content="POST" />
+                          <ComboBoxItem Content="PUT" />
+                        </ComboBox>
+                        <TextBlock Grid.Column="2" Text="Retries:" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Column="3" Value="{Binding WebhookRetries}" Minimum="0" Maximum="5" />
+                        <TextBlock Grid.Column="4" Text="Timeout ms:" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Column="5" Value="{Binding WebhookTimeoutMs}" Minimum="1000" Maximum="60000" />
+                      </Grid>
+                      <TextBox Text="{Binding WebhookHeaders}" Watermark="Headers: Authorization: Bearer ...&#x0A;(one per line)" AcceptsReturn="True" MinHeight="60" />
+                      <TextBox Text="{Binding WebhookBodyTemplate}" Watermark="Optional body template (leave empty for default JSON)" AcceptsReturn="True" MinHeight="60" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4" IsVisible="{Binding IsRunCommand}">
+                      <TextBox Text="{Binding CommandWindows}" Watermark="Windows command (e.g. powershell -File C:\scripts\shut.ps1)" />
+                      <TextBox Text="{Binding CommandMacOS}" Watermark="macOS command (e.g. /usr/local/bin/shut.sh)" />
+                      <TextBox Text="{Binding CommandLinux}" Watermark="Linux command (e.g. /usr/local/bin/shut.sh)" />
+                      <Grid ColumnDefinitions="120,*,Auto,120">
+                        <ComboBox ItemsSource="{Binding $parent[ItemsControl].DataContext.AllShellKinds}"
+                                  SelectedItem="{Binding Shell}" />
+                        <TextBox Grid.Column="1" Text="{Binding WorkingDirectory}" Watermark="Working directory (optional)" />
+                        <TextBlock Grid.Column="2" Text="Timeout ms:" VerticalAlignment="Center" />
+                        <NumericUpDown Grid.Column="3" Value="{Binding CommandTimeoutMs}" Minimum="1000" Maximum="60000" />
+                      </Grid>
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </StackPanel>
+      </Border>
+
+      <!-- Elevation warning -->
+      <Border Background="#443322"
+              CornerRadius="6"
+              Padding="12"
+              IsVisible="{Binding ElevationWarning, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+        <TextBlock Text="{Binding ElevationWarning}" TextWrapping="Wrap" Classes="BodySmall" />
+      </Border>
+
+      <!-- Buttons -->
+      <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,12,0,0">
+        <Button Grid.Column="1" Classes="Ghost" Content="Cancel" Click="OnCancel" />
+        <Button Grid.Column="2" Content="Save" IsEnabled="{Binding IsValid}" Click="OnSave" />
+      </Grid>
+
+    </StackPanel>
+  </ScrollViewer>
+</Window>

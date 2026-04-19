@@ -1,0 +1,42 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:EcoFlowMonitor.ViewModels.Automation"
+        x:Class="EcoFlowMonitor.Views.Automation.RuleHistoryWindow"
+        x:DataType="vm:RuleHistoryViewModel"
+        Title="Rule History"
+        Width="900" Height="620"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource BackgroundPrimary}">
+
+  <DockPanel Margin="16">
+    <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,12">
+      <TextBlock Text="Rule Firing History" Classes="CaptionUpper" VerticalAlignment="Center" />
+      <Button Grid.Column="1" Classes="Ghost" Content="Refresh" Command="{Binding RefreshCommand}" />
+    </Grid>
+
+    <TextBlock DockPanel.Dock="Top" Classes="BodySmall" Margin="0,0,0,6"
+               Text="{Binding Firings.Count, StringFormat='Showing {0} firings (newest first; up to 500 rows)'}" />
+
+    <ListBox ItemsSource="{Binding Firings}" SelectionMode="Single">
+      <ListBox.ItemTemplate>
+        <DataTemplate x:DataType="vm:RuleFiringRowViewModel">
+          <Expander Background="Transparent">
+            <Expander.Header>
+              <Grid ColumnDefinitions="180,200,140,*">
+                <TextBlock Text="{Binding Timestamp}"   Classes="BodySmall" />
+                <TextBlock Text="{Binding RuleName}"    FontWeight="SemiBold" />
+                <TextBlock Text="{Binding Trigger}"     Classes="BodySmall" />
+                <TextBlock Grid.Column="3" Text="{Binding Summary}" Classes="BodySmall" TextTrimming="CharacterEllipsis" />
+              </Grid>
+            </Expander.Header>
+            <TextBlock Text="{Binding Detail}"
+                       FontFamily="monospace"
+                       TextWrapping="Wrap"
+                       Classes="BodySmall"
+                       Margin="20,4,4,8" />
+          </Expander>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+  </DockPanel>
+</Window>
