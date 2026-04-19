@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    TCC usage descriptions (required by macOS 14+; macOS 15+ TERMINATES the
+    process if missing the moment CoreBluetooth is touched).
+
+    Keys that the .NET macOS workload auto-populates (CFBundleVersion,
+    CFBundleShortVersionString, CFBundleIdentifier, LSMinimumSystemVersion,
+    CFBundleExecutable, CFBundleName, etc.) are intentionally omitted — the
+    workload overrides them from csproj properties regardless of what we put
+    here.
+  -->
+
+  <key>NSBluetoothAlwaysUsageDescription</key>
+  <string>EcoFlow UPS Monitor uses Bluetooth to talk to your EcoFlow power station directly, so the app can read battery, power, and temperature data without a cloud account.</string>
+
+  <key>NSBluetoothPeripheralUsageDescription</key>
+  <string>EcoFlow UPS Monitor uses Bluetooth to read telemetry from your EcoFlow power station.</string>
+
+  <!-- Rendering -->
+  <key>NSHighResolutionCapable</key>
+  <true/>
+
+  <!-- Keep the app visible in the Dock + Cmd-Tab (it has a real window, not just a tray icon). -->
+  <key>LSUIElement</key>
+  <false/>
+
+  <!--
+    Hardened-runtime-friendly: .NET macOS bundles use JIT + unsigned executable
+    memory. Our release signing step (scripts/build-macos.sh) attaches an
+    entitlements file granting those; no Info.plist entry required for that.
+  -->
+</dict>
+</plist>
