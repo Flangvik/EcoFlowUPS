@@ -37,33 +37,34 @@ jobs:
           dotnet-version: '10.0.x'
 
       # GitHub runner images pin an older Xcode as the default; the macos
-      # workload rejects it. Walk from the newest installed Xcode down until
-      # we find one with a working MacOSX SDK + install_name_tool — some
-      # newer previews on the image are partially installed.
+      # workload rejects it. Walk newest→oldest and pick the first one where
+      # `xcodebuild -sdk macosx -find install_name_tool` succeeds — that's
+      # the exact invocation the .NET macOS SDK does internally, so if it
+      # works here it works for the build too.
       - name: Select newest usable Xcode
         if: runner.os == 'macOS'
         run: |
           set -euo pipefail
           echo "Available Xcodes:"; ls -d /Applications/Xcode_*.app
-          # Reverse-sort so newest is first
           CANDIDATES=$(ls -d /Applications/Xcode_*.app 2>/dev/null | sort -rV)
           for xc in $CANDIDATES; do
             echo "Trying $xc..."
             sudo xcode-select -s "$xc/Contents/Developer"
-            # Accept license + finish first-launch setup (idempotent)
             sudo xcodebuild -license accept >/dev/null 2>&1 || true
             sudo xcodebuild -runFirstLaunch >/dev/null 2>&1 || true
-            # Verify the SDK + install_name_tool are actually present
-            SDK=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)
-            TOOL=$(xcrun --sdk macosx --find install_name_tool 2>/dev/null || true)
-            if [[ -n "$SDK" && -d "$SDK" && -n "$TOOL" && -x "$TOOL" ]]; then
+            SDK_DIR="$xc/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+            if [[ ! -d "$SDK_DIR" ]]; then
+              echo "  rejected: MacOSX SDK dir missing"
+              continue
+            fi
+            # This is the exact command the .NET macOS SDK runs; if it fails,
+            # the build will fail the same way.
+            if xcodebuild -sdk macosx -find install_name_tool >/dev/null 2>&1; then
               echo "Selected: $xc"
-              echo "  SDK:  $SDK"
-              echo "  tool: $TOOL"
               xcodebuild -version
               exit 0
             fi
-            echo "  rejected ($xc is incomplete)"
+            echo "  rejected: xcodebuild cannot find install_name_tool"
           done
           echo "ERROR: no usable Xcode found on this runner" >&2
           exit 1

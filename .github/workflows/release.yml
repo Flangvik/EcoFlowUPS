@@ -29,9 +29,6 @@ jobs:
           - os: macos-latest
             rid: osx-arm64
             tfm: net10.0-macos
-          - os: macos-13
-            rid: osx-x64
-            tfm: net10.0-macos
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -42,9 +39,10 @@ jobs:
           dotnet-version: '10.0.x'
 
       # GitHub runner images pin an older Xcode as the default; the macos
-      # workload rejects it. Walk from the newest installed Xcode down until
-      # we find one with a working MacOSX SDK + install_name_tool — some
-      # newer previews on the image are partially installed.
+      # workload rejects it. Walk newest→oldest and pick the first one where
+      # `xcodebuild -sdk macosx -find install_name_tool` succeeds — that's
+      # the exact invocation the .NET macOS SDK does internally, so if it
+      # works here it works for the build too.
       - name: Select newest usable Xcode
         if: runner.os == 'macOS'
         run: |
@@ -56,16 +54,17 @@ jobs:
             sudo xcode-select -s "$xc/Contents/Developer"
             sudo xcodebuild -license accept >/dev/null 2>&1 || true
             sudo xcodebuild -runFirstLaunch >/dev/null 2>&1 || true
-            SDK=$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)
-            TOOL=$(xcrun --sdk macosx --find install_name_tool 2>/dev/null || true)
-            if [[ -n "$SDK" && -d "$SDK" && -n "$TOOL" && -x "$TOOL" ]]; then
+            SDK_DIR="$xc/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
+            if [[ ! -d "$SDK_DIR" ]]; then
+              echo "  rejected: MacOSX SDK dir missing"
+              continue
+            fi
+            if xcodebuild -sdk macosx -find install_name_tool >/dev/null 2>&1; then
               echo "Selected: $xc"
-              echo "  SDK:  $SDK"
-              echo "  tool: $TOOL"
               xcodebuild -version
               exit 0
             fi
-            echo "  rejected ($xc is incomplete)"
+            echo "  rejected: xcodebuild cannot find install_name_tool"
           done
           echo "ERROR: no usable Xcode found on this runner" >&2
           exit 1
@@ -120,6 +119,10 @@ jobs:
           # directly at src/EcoFlowMonitor.App/bin/Release/<tfm>/<rid>/EcoFlowMonitor.App.app.
           # ApplicationDisplayVersion → CFBundleShortVersionString, ApplicationVersion → CFBundleVersion (must be numeric).
           # LinkMode=None disables trimming (required: we reflection-load platform assemblies).
+          # Registrar=dynamic lets the build succeed when the runner's Xcode doesn't ship
+          # the exact macOS SDK the .NET macOS workload would prefer. Error MM0179
+          # explicitly lists it as a mitigation and it's safe for our code paths (no
+          # static-registrar-only attributes in use).
           dotnet publish src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj \
             -c Release \
             -f ${{ matrix.tfm }} \
@@ -130,7 +133,8 @@ jobs:
             -p:ApplicationVersion=${{ github.run_number }} \
             -p:DebugType=embedded \
             -p:CreatePackage=false \
-            -p:LinkMode=None
+            -p:LinkMode=None \
+            -p:Registrar=dynamic
 
       - name: Re-sign .app bundle ad-hoc (fixes dyld Invalid Page crash on macOS 15+)
         if: runner.os == 'macOS'
@@ -232,7 +236,6 @@ jobs:
             | Windows x64 | `EcoFlowMonitor-${{ github.ref_name }}-win-x64.zip` |
             | Linux x64 | `EcoFlowMonitor-${{ github.ref_name }}-linux-x64.tar.gz` |
             | macOS Apple Silicon | `EcoFlowMonitor-${{ github.ref_name }}-osx-arm64.zip` |
-            | macOS Intel | `EcoFlowMonitor-${{ github.ref_name }}-osx-x64.zip` |
 
             Binaries are **self-contained** (no .NET runtime required) and **unsigned**.
 
