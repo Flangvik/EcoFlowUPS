@@ -3,6 +3,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using EcoFlowMonitor.Config;
 using EcoFlowMonitor.History;
 using EcoFlowMonitor.Models;
@@ -115,6 +117,9 @@ public partial class App : Application
             desktop.MainWindow = new MainWindow { DataContext = mainVm };
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
+            // Dock / Alt-Tab / window title-bar icon
+            desktop.MainWindow.Icon = LoadWindowIcon("avares://EcoFlowMonitor.App/Assets/app-icon.png");
+
             // Setup tray icon
             SetupTrayIcon(desktop);
         }
@@ -122,21 +127,63 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
     }
 
+    private static WindowIcon? LoadWindowIcon(string uri)
+    {
+        try
+        {
+            using var stream = AssetLoader.Open(new Uri(uri));
+            return new WindowIcon(stream);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "failed to load icon from {Uri}", uri);
+            return null;
+        }
+    }
+
+    private static Bitmap? LoadBitmap(string uri)
+    {
+        try
+        {
+            using var stream = AssetLoader.Open(new Uri(uri));
+            return new Bitmap(stream);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "failed to load bitmap from {Uri}", uri);
+            return null;
+        }
+    }
+
     private void SetupTrayIcon(IClassicDesktopStyleApplicationLifetime desktop)
     {
+        void OpenMain()
+        {
+            var w = desktop.MainWindow;
+            if (w is null) return;
+            // Show from tray even if minimised or previously hidden.
+            if (!w.IsVisible) w.Show();
+            if (w.WindowState == WindowState.Minimized) w.WindowState = WindowState.Normal;
+            w.Activate();
+            w.Topmost = true;  // briefly foreground — then drop it so it behaves like a normal window.
+            w.Topmost = false;
+        }
+
         var trayIcon = new TrayIcon
         {
             ToolTipText = "EcoFlow Monitor",
-            IsVisible = true,
+            IsVisible   = true,
+            Icon        = LoadWindowIcon("avares://EcoFlowMonitor.App/Assets/tray-icon.png"),
             Menu = new NativeMenu
             {
-                new NativeMenuItem("Open") { Command = new RelayCommand(() => desktop.MainWindow?.Show()) },
+                new NativeMenuItem("Open") { Command = new RelayCommand(OpenMain) },
                 new NativeMenuItemSeparator(),
-                new NativeMenuItem("Exit") { Command = new RelayCommand(() => desktop.Shutdown()) }
-            }
+                new NativeMenuItem("Exit") { Command = new RelayCommand(() => desktop.Shutdown()) },
+            },
         };
+        // Primary click (single click on Windows / macOS) opens the window.
+        trayIcon.Clicked += (_, _) => OpenMain();
 
-        // The TrayIcons need to be set on the Application
         var trayIcons = new TrayIcons { trayIcon };
         SetValue(TrayIcon.IconsProperty, trayIcons);
     }

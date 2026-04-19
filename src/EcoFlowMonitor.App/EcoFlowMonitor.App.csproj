@@ -42,6 +42,10 @@
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
+    <AvaloniaResource Include="Assets\app-icon.png" />
+    <AvaloniaResource Include="Assets\tray-icon.png" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\EcoFlowMonitor.Core\EcoFlowMonitor.Core.csproj" />
     <ProjectReference Include="..\EcoFlowMonitor.Platform.Windows\EcoFlowMonitor.Platform.Windows.csproj" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
     <ProjectReference Include="..\EcoFlowMonitor.Platform.macOS\EcoFlowMonitor.Platform.macOS.csproj" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
