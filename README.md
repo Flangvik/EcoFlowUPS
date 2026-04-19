@@ -55,10 +55,27 @@ EcoFlowUPS/
 - **History:** SQLite-backed time series of every telemetry snapshot and power event, visible in the History view
 - **Rules:** triggers (`PowerLost`, `PowerRestored`, `BatteryBelow`, `TimeRemainingBelow`) → actions (shutdown, hibernate, sleep, run script, OS notification, write log line)
 
-**Build:**
+**Build a local release:**
+
+Helper scripts in [`scripts/`](scripts/) produce a self-contained, ready-to-ship binary for each OS. They mirror exactly what CI does.
 
 ```bash
-# macOS (Apple Silicon)
+# macOS (host arch auto-detected; produces signed .app + zip in dist/)
+./scripts/build-macos.sh 1.0.0
+
+# Linux (produces single-file ELF + tar.gz in dist/)
+./scripts/build-linux.sh 1.0.0
+
+# Windows (PowerShell — produces single-file .exe + zip in dist/)
+./scripts/build-windows.ps1 -Version 1.0.0
+```
+
+Pass just `./scripts/build-macos.sh` (no args) for a `0.0.0-local` dev build.
+
+**Quick iteration (no packaging):**
+
+```bash
+# macOS (Apple Silicon) — Debug build, launch in place
 dotnet build src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj -f net10.0-macos -c Debug -r osx-arm64
 open src/EcoFlowMonitor.App/bin/Debug/net10.0-macos/osx-arm64/EcoFlowMonitor.App.app
 

@@ -15,6 +15,7 @@ publish/
 
 # CI packaging output
 /artifacts/
+/dist/
 EcoFlowMonitor-*.zip
 EcoFlowMonitor-*.tar.gz
 
