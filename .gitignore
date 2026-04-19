@@ -10,7 +10,13 @@ __pycache__/
 .vs/
 bin/
 obj/
+publish/
 *.user
+
+# CI packaging output
+/artifacts/
+EcoFlowMonitor-*.zip
+EcoFlowMonitor-*.tar.gz
 
 # Diagnostic scripts with hardcoded credentials
 poc/mqtt_diag.py

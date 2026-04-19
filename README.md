@@ -6,6 +6,25 @@ Cross-platform desktop monitor for EcoFlow power stations. Real-time telemetry v
 
 ---
 
+## Download
+
+Pre-built, self-contained binaries are published on the [Releases page](../../releases/latest). No .NET runtime install required.
+
+| Platform | File |
+|---|---|
+| Windows x64 | `EcoFlowMonitor-vX.Y.Z-win-x64.zip` |
+| Linux x64 | `EcoFlowMonitor-vX.Y.Z-linux-x64.tar.gz` |
+| macOS (Apple Silicon) | `EcoFlowMonitor-vX.Y.Z-osx-arm64.zip` |
+| macOS (Intel) | `EcoFlowMonitor-vX.Y.Z-osx-x64.zip` |
+
+Binaries are **unsigned**. First-run workarounds:
+
+- **macOS (Gatekeeper):** `xattr -cr /path/to/EcoFlowMonitor.App.app` after unzipping.
+- **Windows (SmartScreen):** click **More info → Run anyway** on the warning dialog.
+- **Linux:** make sure `bluetoothd` is running and your user is in the `bluetooth` group. Mark the binary executable with `chmod +x EcoFlowMonitor.App` if needed.
+
+---
+
 ## Repository layout
 
 ```

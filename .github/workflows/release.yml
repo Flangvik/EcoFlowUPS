@@ -1,0 +1,214 @@
+name: release
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to stamp (e.g. 1.2.3). Leave blank for dev build.'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: ${{ matrix.rid }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            rid: linux-x64
+            tfm: net10.0
+          - os: windows-latest
+            rid: win-x64
+            tfm: net10.0
+          - os: macos-latest
+            rid: osx-arm64
+            tfm: net10.0-macos
+          - os: macos-13
+            rid: osx-x64
+            tfm: net10.0-macos
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Install macOS workload
+        if: runner.os == 'macOS'
+        run: dotnet workload install macos
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Derive version
+        id: ver
+        shell: bash
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            V="${GITHUB_REF_NAME#v}"
+          elif [[ -n "${{ inputs.version }}" ]]; then
+            V="${{ inputs.version }}"
+          else
+            V="0.0.0-dev.${GITHUB_SHA::7}"
+          fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          echo "Derived version: $V"
+
+      - name: Publish (Windows / Linux)
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet publish src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj \
+            -c Release \
+            -f ${{ matrix.tfm }} \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -p:PublishSingleFile=true \
+            -p:IncludeNativeLibrariesForSelfExtract=true \
+            -p:DebugType=embedded \
+            -o publish/${{ matrix.rid }}
+
+      - name: Publish (macOS — no -o so .app lands in default location)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Using -o on macOS redirects build to a .pkg; omit it to get the .app bundle
+          # directly at src/EcoFlowMonitor.App/bin/Release/<tfm>/<rid>/EcoFlowMonitor.App.app.
+          # ApplicationDisplayVersion → CFBundleShortVersionString, ApplicationVersion → CFBundleVersion (must be numeric).
+          # LinkMode=None disables trimming (required: we reflection-load platform assemblies).
+          dotnet publish src/EcoFlowMonitor.App/EcoFlowMonitor.App.csproj \
+            -c Release \
+            -f ${{ matrix.tfm }} \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -p:Version=${{ steps.ver.outputs.version }} \
+            -p:ApplicationDisplayVersion=${{ steps.ver.outputs.version }} \
+            -p:ApplicationVersion=${{ github.run_number }} \
+            -p:DebugType=embedded \
+            -p:CreatePackage=false \
+            -p:LinkMode=None
+
+      - name: Re-sign .app bundle ad-hoc (fixes dyld Invalid Page crash on macOS 15+)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The .NET macOS SDK signs the main executable before bundling modifies dylibs,
+          # which produces a code-signing mismatch (Invalid Page / SIGKILL) on macOS 15+
+          # Apple Silicon. We re-sign the entire bundle ad-hoc after publish, with
+          # entitlements that permit bundled unsigned dylibs and .NET JIT memory.
+          APP_DIR="src/EcoFlowMonitor.App/bin/Release/${{ matrix.tfm }}/${{ matrix.rid }}"
+          APP=$(ls -d "$APP_DIR"/*.app 2>/dev/null | head -n1)
+          if [[ -z "$APP" ]]; then
+            echo "No .app bundle found in $APP_DIR"; ls -la "$APP_DIR"; exit 1
+          fi
+          ENT="src/EcoFlowMonitor.App/Entitlements.plist"
+
+          # Main executable: hardened runtime (-o runtime) + entitlements
+          codesign --force --sign - --entitlements "$ENT" --timestamp=none -o runtime \
+            "$APP/Contents/MacOS/EcoFlowMonitor.App"
+
+          # Every bundled Mach-O file: ad-hoc sign with fresh hashes
+          find "$APP" -type f \( -name "*.dylib" -o -name "*.so" \) -print0 | while IFS= read -r -d '' f; do
+            codesign --force --sign - --timestamp=none "$f"
+          done
+
+          # Seal the bundle with the same entitlements
+          codesign --force --sign - --entitlements "$ENT" --timestamp=none "$APP"
+
+          # Verify
+          codesign --verify --verbose=2 "$APP"
+          echo "Re-signed: $APP"
+
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -euo pipefail
+          APP_DIR="src/EcoFlowMonitor.App/bin/Release/${{ matrix.tfm }}/${{ matrix.rid }}"
+          APP=$(ls -d "$APP_DIR"/*.app 2>/dev/null | head -n1)
+          OUT="EcoFlowMonitor-v${{ steps.ver.outputs.version }}-${{ matrix.rid }}.zip"
+          ditto -c -k --keepParent "$APP" "$OUT"
+          echo "Packaged: $OUT ($(du -sh "$OUT" | cut -f1))"
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $out = "EcoFlowMonitor-v${{ steps.ver.outputs.version }}-${{ matrix.rid }}.zip"
+          Compress-Archive -Path "publish/${{ matrix.rid }}/*" -DestinationPath $out -CompressionLevel Optimal
+          Write-Host "Packaged: $out"
+
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod +x publish/${{ matrix.rid }}/EcoFlowMonitor.App || true
+          OUT="EcoFlowMonitor-v${{ steps.ver.outputs.version }}-${{ matrix.rid }}.tar.gz"
+          tar -C publish/${{ matrix.rid }} -czf "$OUT" .
+          echo "Packaged: $OUT"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.rid }}
+          path: |
+            EcoFlowMonitor-*.zip
+            EcoFlowMonitor-*.tar.gz
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    name: GitHub Release
+    needs: publish
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: ls -la artifacts/**/*
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true
+          body: |
+            ## Downloads
+
+            | Platform | File |
+            |---|---|
+            | Windows x64 | `EcoFlowMonitor-${{ github.ref_name }}-win-x64.zip` |
+            | Linux x64 | `EcoFlowMonitor-${{ github.ref_name }}-linux-x64.tar.gz` |
+            | macOS Apple Silicon | `EcoFlowMonitor-${{ github.ref_name }}-osx-arm64.zip` |
+            | macOS Intel | `EcoFlowMonitor-${{ github.ref_name }}-osx-x64.zip` |
+
+            Binaries are **self-contained** (no .NET runtime required) and **unsigned**.
+
+            ### First-run workarounds
+
+            - **macOS** (Gatekeeper): after unzipping, run `xattr -cr /path/to/EcoFlowMonitor.App.app` to clear the quarantine flag.
+            - **Windows** (SmartScreen): on the warning dialog, click **More info** → **Run anyway**.
+            - **Linux**: `chmod +x EcoFlowMonitor.App` if needed, then run it. BlueZ (`bluetoothd`) must be running and the user must be in the `bluetooth` group for BLE to work.

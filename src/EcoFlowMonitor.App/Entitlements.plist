@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!--
+    Ad-hoc signed release entitlements.
+
+    Without disable-library-validation, macOS 15+ kernel refuses to map bundled
+    dylibs (.NET runtime, Avalonia native, SkiaSharp, libsodium, SQLite, etc.)
+    because they were modified after the initial sign step (ILLink trims and
+    bundle-packaging both happen after main-executable sign). Result: SIGKILL
+    with EXC_BAD_ACCESS / CODESIGNING / Invalid Page during dyld load.
+
+    allow-jit + allow-unsigned-executable-memory are required for the .NET
+    JIT / RyuJIT / interpreter paths to run under the hardened runtime.
+
+    allow-dyld-environment-variables lets users set DYLD_* vars for debugging.
+  -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+  <key>com.apple.security.cs.allow-jit</key>
+  <true/>
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <true/>
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <true/>
+</dict>
+</plist>

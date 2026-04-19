@@ -1,0 +1,9 @@
+<Project>
+  <PropertyGroup>
+    <Version Condition="'$(Version)' == ''">0.0.0-local</Version>
+    <Product>EcoFlow UPS Monitor</Product>
+    <Company>EcoFlowUPS</Company>
+    <Copyright>Copyright (c) $([System.DateTime]::UtcNow.Year)</Copyright>
+    <NeutralLanguage>en-US</NeutralLanguage>
+  </PropertyGroup>
+</Project>
