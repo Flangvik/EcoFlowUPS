@@ -387,3 +387,9 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 > Profile not yet configured. Run `/gsd:profile-user` to generate your developer profile.
 > This section is managed by `generate-claude-profile` -- do not edit manually.
 <!-- GSD:profile-end -->
+
+## Active Technologies
+- C# (latest LangVersion), .NET 10 (main)
+
+## Recent Changes
+- main: Added C# (latest LangVersion), .NET 10
