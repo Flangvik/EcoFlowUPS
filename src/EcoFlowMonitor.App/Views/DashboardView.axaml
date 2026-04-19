@@ -247,14 +247,8 @@
                                                            VerticalAlignment="Center" Width="20" />
                                                 <TextBlock Text="{Binding MilliVolts, StringFormat='{}{0} mV'}"
                                                            FontSize="12" FontFamily="JetBrains Mono, Consolas, monospace"
-                                                           VerticalAlignment="Center">
-                                                    <TextBlock.Foreground>
-                                                        <MultiBinding Converter="{x:Static converters:CellVoltageColorConverter.Instance}">
-                                                            <Binding Path="IsMin" />
-                                                            <Binding Path="IsMax" />
-                                                        </MultiBinding>
-                                                    </TextBlock.Foreground>
-                                                </TextBlock>
+                                                           VerticalAlignment="Center"
+                                                           Foreground="{Binding MilliVolts, Converter={x:Static converters:CellVoltageColorConverter.Instance}}" />
                                             </StackPanel>
                                         </Border>
                                     </DataTemplate>
