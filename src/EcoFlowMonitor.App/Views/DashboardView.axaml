@@ -82,11 +82,24 @@
                         IsVisible="{Binding SelectedDevice, Converter={x:Static ObjectConverters.IsNotNull}}">
                 <StackPanel DataContext="{Binding SelectedDevice}" Spacing="16">
 
-                    <!-- HERO: Battery + Status -->
-                    <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,8">
+                    <!-- HERO: Battery + Status + Rules quick-actions -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,8">
                         <controls:ArcBatteryGauge Grid.Column="0" Width="140" Height="140"
                                                    Percentage="{Binding BatteryPct}"
                                                    Status="{Binding PowerStatus}" />
+
+                        <!-- Right-aligned Rules quick-actions so + Add Rule is visible
+                             without needing to scroll down to the RULES card. -->
+                        <StackPanel Grid.Column="2" VerticalAlignment="Top" Spacing="6"
+                                    HorizontalAlignment="Right" Margin="16,0,0,0">
+                            <Button Classes="Ghost" Content="+ Add Rule" Padding="10,6"
+                                    Command="{Binding DataContext.AddRuleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <Button Classes="Ghost" Content="Rule History" Padding="10,6"
+                                    Command="{Binding DataContext.ViewRuleHistoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            <TextBlock Classes="BodySmall" HorizontalAlignment="Right"
+                                       Text="{Binding Config.Rules.Count, StringFormat='{}{0} rule(s)'}" />
+                        </StackPanel>
+
                         <StackPanel Grid.Column="1" Margin="24,0,0,0" VerticalAlignment="Center" Spacing="4">
                             <TextBlock Classes="DisplayMedium">
                                 <TextBlock.Text>
@@ -257,13 +270,7 @@
 
                     <!-- RULES SECTION -->
                     <StackPanel Spacing="8" Margin="0,8,0,24">
-                        <Grid ColumnDefinitions="*,Auto,Auto">
-                            <TextBlock Text="RULES" Classes="CaptionUpper" VerticalAlignment="Center" />
-                            <Button Grid.Column="1" Classes="Ghost" Content="History"
-                                    Command="{Binding DataContext.ViewRuleHistoryCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            <Button Grid.Column="2" Classes="Ghost" Content="+ Add Rule" Margin="6,0,0,0"
-                                    Command="{Binding DataContext.AddRuleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                        </Grid>
+                        <TextBlock Text="RULES" Classes="CaptionUpper" />
 
                         <!-- Empty state -->
                         <TextBlock Text="No rules configured. Add a rule to automate actions on power events."
