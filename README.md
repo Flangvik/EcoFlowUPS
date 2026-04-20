@@ -53,10 +53,9 @@ EcoFlowUPS/
 - **BLE channel:** ECDH SECP160r1 handshake → AES-128-CBC session → `pd335_sys.DisplayPropertyUpload` protobuf
 - **MQTT channel:** Cloud broker at `mqtt.ecoflow.com:8883` using credentials fetched via the REST login flow
 - **History:** SQLite-backed time series of every telemetry snapshot and power event, visible in the History view
-- **Automation:** full rules engine — in-app editor, cross-platform. See [`specs/001-rules-engine/quickstart.md`](specs/001-rules-engine/quickstart.md) for the five-minute walkthrough.
-  - **Triggers:** `PowerLost`, `PowerRestored`, `BatteryBelow`, `BatteryAbove`, `TimeRemainingBelow`, `TempAbove`, `TempBelow`, `AcPlugged`, `AcUnplugged`, `InputWattsBelow`, `OutputWattsAbove`, `DeviceOffline`, `DeviceOnline`
-  - **Actions:** `Shutdown`, `Hibernate`, `Sleep`, `RunScript`, `RunCommand` (per-OS command strings with `{device}`/`{battery}`/`{temp_c}`/etc. template variables), `Webhook` (HTTP POST/PUT with user headers, configurable retries + timeout), `Notification`, `WriteLog`
-  - **Audit log:** every rule firing and per-action outcome persisted in the existing `history.db`, viewable via the **History** button on the dashboard Rules card. 30-day retention by default.
+- **Automation:** full rules engine, cross-platform. In-app editor on the dashboard — **+ Add Rule** / **Rule History** buttons at the top-right of each device card; per-rule **Test**, **Edit**, **Delete** controls on the list below. Triggers + actions are summarised in the tables further down.
+- **Audit log:** every rule firing and per-action outcome persisted in `history.db`, viewable via the **Rule History** button. 30-day retention by default; configurable.
+- **Concurrency cap:** actions dispatch through a bounded channel with a user-configurable limit (default 8, range 1–64) so runaway scripts or hung webhooks can't block telemetry ingestion.
 
 **Build a local release:**
 
@@ -130,14 +129,27 @@ No official SDK — all of the above is from packet capture and the [`ha-ef-ble`
 
 ## Triggers
 
-| Trigger | Description |
-|---|---|
-| `PowerLost` | AC input dropped to 0 W (edge, fires once) |
-| `PowerRestored` | AC input returned after power loss (edge, fires once) |
-| `BatteryBelow` | Battery % below threshold (level, 5-minute cooldown) |
-| `TimeRemainingBelow` | Estimated minutes remaining below threshold (level, 5-minute cooldown) |
+Edge triggers fire once per state transition; level triggers fire while the condition holds, throttled by a per-rule cooldown (default 300 s). All cooldowns are editable per rule.
+
+| Trigger | Kind | Parameter | Description |
+|---|---|---|---|
+| `PowerLost` | edge | — | Station transitions into PowerLost (AC disappeared). |
+| `PowerRestored` | edge | — | Station transitions out of PowerLost back to Charging. |
+| `AcPlugged` | edge | — | AC cable plugged into the station (false → true on `AcPluggedIn`). |
+| `AcUnplugged` | edge | — | AC cable unplugged from the station. |
+| `DeviceOnline` | edge | — | First telemetry after a `DeviceOffline` gap resolves. |
+| `BatteryBelow` | level | `%` (0–100) | Battery percentage below threshold. |
+| `BatteryAbove` | level | `%` (0–100) | Battery percentage above threshold. |
+| `TimeRemainingBelow` | level | `min` (1–1440) | Device-reported minutes-to-empty below threshold. |
+| `TempAbove` | level | `°C` (decimal) | BMS temperature above threshold. |
+| `TempBelow` | level | `°C` (decimal) | BMS temperature below threshold. |
+| `InputWattsBelow` | level | `W` | Total input watts below threshold (handy for solar drop-off). |
+| `OutputWattsAbove` | level | `W` | Total output watts above threshold (heavy-load alert). |
+| `DeviceOffline` | edge | `sec` (30–86400) | No telemetry on any channel for the configured window (default 300 s). |
 
 ## Actions
+
+Actions dispatch through a bounded concurrency queue (default 8 in-flight). Each attempt lands in the audit log with its outcome — success / failure / skipped / timeout / dropped.
 
 | Action | Windows | macOS | Linux |
 |---|---|---|---|
@@ -145,7 +157,26 @@ No official SDK — all of the above is from packet capture and the [`ha-ef-ble`
 | `Hibernate` | `shutdown.exe /h` | `pmset sleepnow` | `systemctl hibernate` |
 | `Sleep` | `rundll32.exe … SetSuspendState` | `pmset sleepnow` | `systemctl suspend` |
 | `RunScript` | `.bat`, `.ps1`, `.exe` | shell / exec | shell / exec |
+| `RunCommand` | cmd.exe / `pwsh` (per-action shell picker) | `/bin/sh -c "…"` | `/bin/sh -c "…"` |
+| `Webhook` | HTTP POST/PUT with user headers + optional body template; per-action timeout + configurable retries (0–5) | same | same |
 | `Notification` | Toast | `osascript display notification` | `notify-send` |
 | `WriteLog` | timestamped append | timestamped append | timestamped append |
 
-Template variables expanded in notification body and log messages: `{device}`, `{battery}`, `{remain}`, `{status}`, `{in_w}`, `{out_w}`.
+**`RunCommand`** takes per-OS command strings (`commandWindows` / `commandMacOS` / `commandLinux`) so one rule runs the right thing on whichever host the app is launched on. If the field for the current OS is empty, the action is marked `skipped` (no failure, no crash).
+
+**`Webhook`**: `Authorization` and `X-*-Token` / `X-*-Secret` / `X-*-Key` headers are redacted in the audit log; URL and body template are stored verbatim (keep secrets in headers, not in URLs).
+
+**Template variables** — expanded in any templated field (notification title/body, log message, webhook body, RunCommand arguments). Unknown / missing values expand to `<unknown>` (`?` for legacy variables, preserved for backward compatibility).
+
+| Variable | Source |
+|---|---|
+| `{device}` | Device display name |
+| `{device_sn}` | Device serial number |
+| `{battery}` | Battery percent (1 decimal, InvariantCulture) |
+| `{remain}` | Estimated runtime remaining (`Xh Ym`) |
+| `{status}` | `Charging` / `Idle` / `PowerLost` / `Unknown` |
+| `{in_w}` | Total input watts |
+| `{out_w}` | Total output watts |
+| `{temp_c}` | BMS temperature °C (1 decimal, InvariantCulture) |
+| `{ac_plugged}` | `true` / `false` — AC plugged-in state |
+| `{charge_state}` | Raw EMS charge-state integer |
