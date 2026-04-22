@@ -129,7 +129,13 @@ No official SDK — all of the above is from packet capture and the [`ha-ef-ble`
 
 ## Triggers
 
-Edge triggers fire once per state transition; level triggers fire while the condition holds, throttled by a per-rule cooldown (default 300 s). All cooldowns are editable per rule.
+Rules combine **one or more conditions** via a single operator — `All must be true` (AND) or `Any must be true` (OR) — and fire once on the rising edge of the combined predicate, throttled by a per-rule cooldown (default 300 s).
+
+Example: *"shut down my PC when the battery is below 20% **and** AC is out"* is a 2-condition AND rule with a `Shutdown` action. Charging down to 15% while plugged in no longer triggers it.
+
+Under the hood, every condition is a trigger — the 13 types below. Edge-style triggers (PowerLost, AcPlugged, DeviceOffline…) contribute their *current state* inside a composite; the rising edge is detected on the overall predicate, not per condition. A condition whose source telemetry is missing evaluates to `false` so the rule never fires on "unknown" data.
+
+A rule with exactly one condition behaves identically to the pre-composite engine, and legacy `config.json` files migrate into this shape automatically on load.
 
 | Trigger | Kind | Parameter | Description |
 |---|---|---|---|

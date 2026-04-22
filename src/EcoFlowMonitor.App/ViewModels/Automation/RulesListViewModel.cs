@@ -57,19 +57,21 @@ public partial class RulesListViewModel : ViewModelBase
     private void DuplicateRule(RuleRowViewModel? row)
     {
         if (row == null) return;
+        row.Rule.EnsureConditionsHydrated();
         var copy = new RuleConfig
         {
-            Id      = Guid.NewGuid().ToString(),
-            Name    = row.Rule.Name + " (copy)",
-            Enabled = false,
-            Trigger = new TriggerConfig
+            Id         = Guid.NewGuid().ToString(),
+            Name       = row.Rule.Name + " (copy)",
+            Enabled    = false,
+            Operator   = row.Rule.Operator,
+            Conditions = row.Rule.Conditions.Select(c => new ConditionConfig
             {
-                Type             = row.Rule.Trigger.Type,
-                Threshold        = row.Rule.Trigger.Threshold,
-                ThresholdF       = row.Rule.Trigger.ThresholdF,
-                CooldownSeconds  = row.Rule.Trigger.CooldownSeconds,
-                WindowSeconds    = row.Rule.Trigger.WindowSeconds,
-            },
+                Type            = c.Type,
+                Threshold       = c.Threshold,
+                ThresholdF      = c.ThresholdF,
+                CooldownSeconds = c.CooldownSeconds,
+                WindowSeconds   = c.WindowSeconds,
+            }).ToList(),
             Actions = row.Rule.Actions.Select(a => new ActionConfig
             {
                 Type              = a.Type,
@@ -123,8 +125,18 @@ public partial class RuleRowViewModel : ViewModelBase
     {
         get
         {
+            Rule.EnsureConditionsHydrated();
             var actionNames = string.Join(", ", Rule.Actions.Select(a => a.Type.ToString()));
-            return $"{Rule.Trigger.Type} → {actionNames}";
+            string trigger;
+            if (Rule.Conditions.Count == 0)
+                trigger = "(no conditions)";
+            else if (Rule.Conditions.Count == 1)
+                trigger = Rule.Conditions[0].Type.ToString();
+            else
+                trigger = Rule.Operator == RuleConditionOperator.All
+                    ? $"All of {Rule.Conditions.Count} conditions"
+                    : $"Any of {Rule.Conditions.Count} conditions";
+            return $"{trigger} → {actionNames}";
         }
     }
     public bool Enabled => Rule.Enabled;

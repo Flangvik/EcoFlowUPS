@@ -1,10 +1,13 @@
 # User config with credentials (POC config.json — C# app stores in AppData)
 config.json
-!.planning/config.json
 __pycache__/
 *.pyc
 .pytest_cache/
 .worktrees/
+
+# Spec-kit local artefacts — kept on disk but not in the repo
+/.specify/
+/specs/
 
 # Visual Studio / .NET build
 .vs/

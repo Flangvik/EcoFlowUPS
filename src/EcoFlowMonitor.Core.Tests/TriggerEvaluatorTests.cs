@@ -77,21 +77,18 @@ public class TriggerEvaluatorTests
         var rule = new RuleConfig { Name = "plug", Trigger = new TriggerConfig { Type = TriggerType.AcPlugged } };
         var device = Device(rule);
 
-        // Seed the previous AC-plug observation as "false".
-        var state1 = State(acPluggedIn: false, power: PowerStatus.Idle);
-        TriggerEvaluator.Evaluate(device, state1, PowerStatus.Idle);  // primes LastAcPluggedIn=false; no fire.
+        // Under the composite model, rising-edge state lives on DeviceState.
+        // Production reuses the same DeviceState instance across evaluations;
+        // mirror that here.
+        var state = State(acPluggedIn: false, power: PowerStatus.Idle);
+        TriggerEvaluator.Evaluate(device, state, PowerStatus.Idle).Should().BeEmpty();
 
-        // Second evaluation: plugged in.
-        var state2 = State(acPluggedIn: true, power: PowerStatus.Charging);
-        state2.LastAcPluggedIn = state1.LastAcPluggedIn; // carry-over (in real life same DeviceState instance)
-        var fired = TriggerEvaluator.Evaluate(device, state2, PowerStatus.Idle);
+        state.Display!.AcPluggedIn = true;
+        state.Power = new PowerState { Status = PowerStatus.Charging };
+        TriggerEvaluator.Evaluate(device, state, PowerStatus.Idle).Should().ContainSingle();
 
-        fired.Should().ContainSingle();
-
-        // Third evaluation: still plugged → no fire.
-        var state3 = State(acPluggedIn: true, power: PowerStatus.Charging);
-        state3.LastAcPluggedIn = state2.LastAcPluggedIn;
-        TriggerEvaluator.Evaluate(device, state3, PowerStatus.Charging).Should().BeEmpty();
+        // Still plugged → composite remains true → no second fire.
+        TriggerEvaluator.Evaluate(device, state, PowerStatus.Charging).Should().BeEmpty();
     }
 
     [Fact]

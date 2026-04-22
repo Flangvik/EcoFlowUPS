@@ -16,13 +16,22 @@ public partial class DeviceViewModel : ViewModelBase
     public string? SerialNumber => _device.SerialNumber;
     public DeviceConfig Config => _device;
 
+    /// <summary>Live per-rule indicators for the dashboard rules card (US4).</summary>
+    public ObservableCollection<RuleIndicatorViewModel> RuleIndicators { get; } = new();
+
     /// <summary>
     /// Called by DashboardViewModel after a rule is added/edited/deleted so
     /// bindings against <see cref="Config"/>.Rules pick up the changes.
+    /// Rebuilds the <see cref="RuleIndicators"/> collection in-place.
     /// </summary>
     public void RaiseRulesChanged()
     {
         OnPropertyChanged(nameof(Config));
+
+        // Rebuild indicator list to match Rules.
+        RuleIndicators.Clear();
+        foreach (var r in _device.Rules)
+            RuleIndicators.Add(new RuleIndicatorViewModel(r));
     }
 
     // Connection info
@@ -90,6 +99,11 @@ public partial class DeviceViewModel : ViewModelBase
         ConnectionMode = device.ConnectionMode;
         UpdateBadge();
 
+        // Prime rule indicators from the current device config (will refresh
+        // on each telemetry update via UpdateFromState).
+        foreach (var r in _device.Rules)
+            RuleIndicators.Add(new RuleIndicatorViewModel(r));
+
         // Staleness timer — fires every 10s to update IsStale, StalenessText, DataOpacity
         var stalenessTimer = new DispatcherTimer
         {
@@ -127,6 +141,9 @@ public partial class DeviceViewModel : ViewModelBase
     public void UpdateFromState(DeviceState state)
     {
         UpdateConnectionState(state);
+
+        // Refresh per-rule tally indicators against the live state.
+        foreach (var ind in RuleIndicators) ind.UpdateFromState(state);
 
         if (state.LastDataReceived.HasValue)
             _lastKnownDataReceived = state.LastDataReceived;

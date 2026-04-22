@@ -391,6 +391,8 @@ A cross-platform desktop app that monitors EcoFlow Delta 3 / Delta 3 Max battery
 
 ## Active Technologies
 - C# (latest LangVersion), .NET 10 (main)
+- C# (latest LangVersion), .NET 10.0 (`net10.0` / `net10.0-macos`) + Avalonia 11.2.3, CommunityToolkit.Mvvm 8.4.0, MQTTnet 4.3.7, System.Text.Json, Microsoft.Data.Sqlite (main)
+- Existing `config.json` (AppConfig) for rule definitions; existing `history.db` SQLite for audit rows; new in-memory `RuleCompositeStates` map on `DeviceState` (main)
 
 ## Recent Changes
 - main: Added C# (latest LangVersion), .NET 10

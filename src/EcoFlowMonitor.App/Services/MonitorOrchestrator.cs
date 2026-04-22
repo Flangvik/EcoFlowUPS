@@ -218,12 +218,10 @@ public class MonitorOrchestrator : IDisposable
     private void OnStateChanged(MonitorEntry entry, StateChangedEventArgs e)
     {
         var source = entry.Monitor is BleMonitor ? "BLE" : "Cloud";
+        // TriggerEvaluator hydrates each rule and runs the composite path.
         var toFire = TriggerEvaluator.Evaluate(entry.Device, e.State, e.PreviousPower);
         foreach (var rule in toFire)
-        {
             QueueFiring(entry.Device, rule, e.State, isTest: false);
-            TriggerEvaluator.RecordFired(rule, e.State);
-        }
 
         // -- History persistence (DATA-01) --
         var snapshot = new TelemetrySnapshot(
@@ -274,7 +272,7 @@ public class MonitorOrchestrator : IDisposable
                 RuleId             = rule.Id,
                 RuleName           = rule.Name,
                 DeviceSn           = device.SerialNumber ?? "",
-                TriggerType        = rule.Trigger.Type.ToString(),
+                TriggerType        = SummariseTriggerType(rule),
                 TriggerValueJson   = ctx,
                 IsTest             = isTest,
             };
@@ -360,40 +358,31 @@ public class MonitorOrchestrator : IDisposable
     }
 
     private static string BuildTriggerContextJson(DeviceConfig device, RuleConfig rule, DeviceState state)
+        => TriggerContextBuilder.Build(device, rule, state);
+
+    /// <summary>
+    /// Short trigger-type column for the audit row. Single-condition rules
+    /// keep their historical "BatteryBelow" label; composites use "And(2)" or
+    /// "Or(3)" so the at-a-glance history listing stays readable.
+    /// </summary>
+    private static string SummariseTriggerType(RuleConfig rule)
     {
-        var ctx = new
-        {
-            device = new
-            {
-                serialNumber = device.SerialNumber,
-                name = device.DisplayName,
-                batteryPct = state.Bms?.BatteryPct,
-                remainMin = state.Bms?.RemainMin,
-                tempC = state.Bms?.TempC,
-                totalInW = state.Display?.TotalInW,
-                totalOutW = state.Display?.TotalOutW,
-                acPluggedIn = state.Display?.AcPluggedIn,
-                chargeState = state.Ems?.ChgState,
-                powerStatus = state.Power.Status.ToString(),
-            },
-            trigger = new
-            {
-                type = rule.Trigger.Type.ToString(),
-                threshold = rule.Trigger.Threshold,
-                thresholdF = rule.Trigger.ThresholdF,
-                windowSeconds = rule.Trigger.WindowSeconds,
-            },
-        };
-        return JsonSerializer.Serialize(ctx);
+        if (rule.Conditions.Count == 1) return rule.Conditions[0].Type.ToString();
+        var op = rule.Operator == RuleConditionOperator.All ? "And" : "Or";
+        return $"{op}({rule.Conditions.Count})";
     }
 
     private async Task FireSyntheticAsync(DeviceConfig device, DeviceState state, TriggerType type)
     {
+        var now = DateTime.UtcNow;
         foreach (var rule in device.Rules)
         {
             if (!rule.Enabled) continue;
-            if (rule.Trigger.Type != type) continue;
-            QueueFiring(device, rule, state, isTest: false);
+            rule.EnsureConditionsHydrated();
+            if (!rule.Conditions.Any(c => c.Type == type)) continue;
+            // Let the composite evaluator decide (rising-edge + cooldown).
+            if (TriggerEvaluator.EvaluateComposite(rule, state, now))
+                QueueFiring(device, rule, state, isTest: false);
         }
         await Task.CompletedTask;
     }

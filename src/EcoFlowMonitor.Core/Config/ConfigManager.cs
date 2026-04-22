@@ -23,8 +23,17 @@ public static class ConfigManager
         {
             if (!File.Exists(ConfigPath))
                 return new AppConfig();
-            var json = File.ReadAllText(ConfigPath);
-            return JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig();
+            var json   = File.ReadAllText(ConfigPath);
+            var config = JsonSerializer.Deserialize<AppConfig>(json, JsonOptions) ?? new AppConfig();
+
+            // Lazy migration (feature 002): map any legacy `trigger` field into
+            // `conditions[0]`. File is not re-written here; the editor will
+            // persist in the new shape next time the user saves the rule.
+            foreach (var device in config.Devices)
+                foreach (var rule in device.Rules)
+                    rule.EnsureConditionsHydrated();
+
+            return config;
         }
         catch (Exception ex)
         {

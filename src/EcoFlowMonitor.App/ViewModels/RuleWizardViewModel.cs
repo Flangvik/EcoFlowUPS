@@ -40,10 +40,13 @@ public partial class RuleWizardViewModel : ViewModelBase
         if (existingRule != null)
         {
             _existingRule = existingRule;
+            existingRule.EnsureConditionsHydrated();
             _ruleName = existingRule.Name;
             _ruleEnabled = existingRule.Enabled;
-            _selectedTrigger = existingRule.Trigger.Type;
-            _threshold = existingRule.Trigger.Threshold;
+            // Wizard is a single-condition shortcut; read condition[0].
+            var first = existingRule.Conditions.FirstOrDefault();
+            _selectedTrigger = first?.Type ?? TriggerType.PowerLost;
+            _threshold = first?.Threshold ?? 0;
             foreach (var action in existingRule.Actions)
                 Actions.Add(action);
         }
@@ -72,7 +75,12 @@ public partial class RuleWizardViewModel : ViewModelBase
         var rule = _existingRule ?? new RuleConfig();
         rule.Name = RuleName;
         rule.Enabled = RuleEnabled;
-        rule.Trigger = new TriggerConfig { Type = SelectedTrigger, Threshold = Threshold };
+        rule.Conditions = new List<ConditionConfig>
+        {
+            new() { Type = SelectedTrigger, Threshold = Threshold },
+        };
+        rule.Operator = RuleConditionOperator.All;
+        rule.Trigger = null;
         rule.Actions = new List<ActionConfig>(Actions);
         _onComplete(rule);
     }

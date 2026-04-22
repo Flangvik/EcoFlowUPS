@@ -64,14 +64,20 @@ public sealed class DeviceOfflineWatcher : IAsyncDisposable
     {
         var lastData = state.LastDataReceived;
 
-        // Find the smallest offline-window in any active rule; default 300 s.
+        // Find the smallest offline-window in any active rule's conditions;
+        // default 300 s. Every rule is hydrated into Conditions before we
+        // inspect it so composite + legacy rules are handled uniformly.
         int? minWindow = null;
         foreach (var rule in device.Rules)
         {
             if (!rule.Enabled) continue;
-            if (rule.Trigger.Type != TriggerType.DeviceOffline) continue;
-            var w = rule.Trigger.WindowSeconds ?? 300;
-            if (minWindow == null || w < minWindow) minWindow = w;
+            rule.EnsureConditionsHydrated();
+            foreach (var c in rule.Conditions)
+            {
+                if (c.Type != TriggerType.DeviceOffline) continue;
+                var w = c.WindowSeconds ?? 300;
+                if (minWindow == null || w < minWindow) minWindow = w;
+            }
         }
         if (minWindow == null) return;
 
@@ -84,8 +90,8 @@ public sealed class DeviceOfflineWatcher : IAsyncDisposable
             foreach (var rule in device.Rules)
             {
                 if (!rule.Enabled) continue;
-                if (rule.Trigger.Type != TriggerType.DeviceOffline) continue;
-                await _fireCallback(device, state, TriggerType.DeviceOffline).ConfigureAwait(false);
+                if (rule.Conditions.Any(c => c.Type == TriggerType.DeviceOffline))
+                    await _fireCallback(device, state, TriggerType.DeviceOffline).ConfigureAwait(false);
             }
         }
         else if (!isOffline && wasOffline)
@@ -94,8 +100,8 @@ public sealed class DeviceOfflineWatcher : IAsyncDisposable
             foreach (var rule in device.Rules)
             {
                 if (!rule.Enabled) continue;
-                if (rule.Trigger.Type != TriggerType.DeviceOnline) continue;
-                await _fireCallback(device, state, TriggerType.DeviceOnline).ConfigureAwait(false);
+                if (rule.Conditions.Any(c => c.Type == TriggerType.DeviceOnline))
+                    await _fireCallback(device, state, TriggerType.DeviceOnline).ConfigureAwait(false);
             }
         }
     }

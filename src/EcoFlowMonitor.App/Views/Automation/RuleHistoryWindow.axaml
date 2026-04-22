@@ -29,11 +29,31 @@
                 <TextBlock Grid.Column="3" Text="{Binding Summary}" Classes="BodySmall" TextTrimming="CharacterEllipsis" />
               </Grid>
             </Expander.Header>
-            <TextBlock Text="{Binding Detail}"
-                       FontFamily="monospace"
-                       TextWrapping="Wrap"
-                       Classes="BodySmall"
-                       Margin="20,4,4,8" />
+            <StackPanel Margin="20,4,4,8" Spacing="10">
+
+              <!-- Per-condition truth grid (feature 002). Hidden on legacy rows. -->
+              <StackPanel IsVisible="{Binding HasConditions}" Spacing="4">
+                <TextBlock Text="{Binding OperatorLabel, StringFormat='Composite (operator: {0})'}"
+                           Classes="CaptionUpper" />
+                <ItemsControl ItemsSource="{Binding Conditions}">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ConditionFiringRowVm">
+                      <Grid ColumnDefinitions="32,160,*,32" Margin="0,2">
+                        <TextBlock Text="{Binding Index}"       Classes="BodySmall" FontFamily="monospace" />
+                        <TextBlock Text="{Binding Type}"        Grid.Column="1" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding Params}"      Grid.Column="2" Classes="BodySmall" FontFamily="monospace" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding ValueGlyph}"  Grid.Column="3" HorizontalAlignment="Center" FontWeight="Bold" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </StackPanel>
+
+              <TextBlock Text="{Binding Detail}"
+                         FontFamily="monospace"
+                         TextWrapping="Wrap"
+                         Classes="BodySmall" />
+            </StackPanel>
           </Expander>
         </DataTemplate>
       </ListBox.ItemTemplate>

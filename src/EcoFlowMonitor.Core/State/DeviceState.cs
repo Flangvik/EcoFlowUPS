@@ -52,4 +52,27 @@ public class DeviceState
     /// <see cref="EcoFlowMonitor.Triggers.DeviceOfflineWatcher"/>.
     /// </summary>
     public bool IsOffline { get; set; }
+
+    // -- Composite-trigger bookkeeping (feature 002) -------------------------
+
+    /// <summary>
+    /// Per-rule composite predicate state, keyed by rule id. Used by
+    /// <see cref="EcoFlowMonitor.Triggers.TriggerEvaluator.EvaluateComposite"/>
+    /// to detect rising-edge transitions on the rule's combined predicate.
+    /// Not persisted — reset on process restart.
+    /// </summary>
+    public Dictionary<string, RuleCompositeState> RuleCompositeStates { get; } = new();
+}
+
+/// <summary>
+/// In-memory state for a composite rule's predicate. One entry per
+/// <c>(device, rule)</c> pair.
+/// </summary>
+public class RuleCompositeState
+{
+    /// <summary>Value of the composite predicate at the last evaluation.</summary>
+    public bool LastTrue { get; set; }
+
+    /// <summary>Timestamp of the last rising-edge fire; null until first fire.</summary>
+    public DateTime? LastFired { get; set; }
 }
